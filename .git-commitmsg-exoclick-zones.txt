@@ -1,0 +1,78 @@
+feat(ads): drop Adsterra, add ExoClick popunder + instant message zones
+
+Two new ExoClick zones, and the Adsterra integration removed in the same
+change so the site runs on a single ad stack.
+
+WHY ADSTERRA CAME OUT
+
+Two script tags were integrated in 05e092d. Their CDN
+(profitableratecpmnetwork.com) could not be reached from this machine by
+any method tried: direct request, real IP pinned with SNI preserved,
+and two neutral third-party fetchers. Local DNS returns 1.1.1.1 for those
+hosts while public DNS returns the real IPs, which is the signature of
+DNS-level interference on this network. We could confirm the tags were
+injected but never confirm delivery or earnings, and an unverifiable ad
+tag is not worth carrying.
+
+ExoClick is verifiable: s.magsrv.com responds from the same shell, and
+every zone below was watched filling in the browser console before this
+commit was written.
+
+ZONE 6057172 - POPUNDER (new, site-wide)
+
+This is the unit that monetises a visit with no engagement. Everything
+else in the stack is conditional on the visitor doing something: pre-roll
+needs a play click, out-stream needs a pause, slider needs browse time,
+sponsored grid needs scrolling past it. A visitor who lands and leaves
+earns nothing, and that is most of the top of the funnel.
+
+Mounted in the root layout on every route, /watch included. That is a
+deliberate reversal of the rule every other unit follows -
+ExoclickVideoSlider excludes /watch because a floating video player in a
+full-bleed playback screen is hostile to what we sell. The popunder is
+not the same: trigger_method 3 fires on user interaction rather than on
+load, and frequency_period 60 / frequency_count 1 caps it at one per
+visitor per hour via their own cookie. It cannot ambush someone at the
+moment they press play. We deliberately add no second cap, because two
+caps on one format means neither is the one actually governing.
+
+The dashboard issued this as a raw inline <script>, not an <ins> tag:
+the popunder is a self-contained popMagic v12 IIFE with its own adConfig
+pointing at a.pemsrv.com / s.pemsrv.com, a completely different delivery
+host from the a.magsrv.com loader the other zones use. The ~16KB of
+minified vendor code is shipped verbatim as public/popunder-6057172.js
+and loaded by src, rather than inlined into a JSX string body where
+React's children handling would have to survive that much obfuscated
+third-party code. Do not reformat it; regenerate from the dashboard
+snippet if the zone is ever reissued.
+
+ZONE 6057176 - INSTANT MESSAGE (new, detail pages)
+
+Same ad-provider delivery as the slider and sponsored grid, so it is an
+<ins> plus one AdProvider push. It renders a single native message
+rather than a four-card row, so it is placed on the movie and TV detail
+pages - the deepest-intent surfaces we have, and the only pages that
+carried no native inventory at all - rather than crowding the six browse
+pages that already spend vertical space on SponsoredRow.
+
+No suppression cap, deliberately. See SponsoredRow: the suppression key
+used to be written before the ad was ever requested, so a no-fill or a
+blocked loader burned the slot for the session while nothing had been
+shown. ExoClick caps per zone on their side; a second cap here would only
+suppress fill we could have earned.
+
+VERIFIED BEFORE COMMIT
+
+  [movbox:popunder] loaded zone 6057172
+  zone 6057176 pushed (zone_type 6)
+  s.magsrv.com - Request #0 with 1 zone(s) of type INSTANT MESSAGE is
+    being served
+  s.magsrv.com - Request #1 with 1 zone(s) of type OUTSTREAM VIDEO is
+    being served
+  s.magsrv.com - 2 ad request(s) completed successfully
+  node --check public/popunder-6057172.js -> OK
+
+REMOVED
+
+components/ads/AdsterraScripts.tsx, lib/ads/adsterra.ts, and the layout
+mount. No references remain.

@@ -1,0 +1,233 @@
+@import "tailwindcss";
+
+/* =========================================================================
+   Movbox — Design System
+   Burgundy-led cinematic dark theme
+   ========================================================================= */
+
+@theme {
+  /* Core surfaces (darkest -> lightest) */
+  --color-bg-deepest: #080606;
+  --color-bg-primary: #0d0909;
+  --color-surface: #140d0e;
+  --color-surface-elevated: #1b1113;
+  --color-surface-hover: #261820;
+
+  /* Brand burgundy palette */
+  --color-brand: #800020;
+  --color-accent: #a42e4a;
+  --color-accent-bright: #d7707c;
+  --color-accent-soft: #e6a0a8;
+
+  /* Premium highlights */
+  --color-cream: #fffdd0;
+  --color-vanilla: #f7edb9;
+
+  /* Text */
+  --color-text-primary: #f8f0e8;
+  --color-text-secondary: #b9a9a5;
+  --color-text-muted: #766a68;
+
+  /* Borders + glow */
+  --color-border: #302022;
+  --color-border-strong: #4a3538;
+  --color-glow: rgba(164, 46, 74, 0.4);
+
+  /* Card placeholder — matches the popcorn illustration background */
+  --color-card-burgundy: #53151e;
+
+  /* Status */
+  --color-success: #4ade80;
+  --color-warning: #facc15;
+  --color-error: #f87171;
+
+  /* Fonts */
+  --font-display: var(--font-cinzel), Georgia, serif;
+  --font-body: var(--font-inter), system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+
+  /* Shadows (burgundy-tinted) */
+  --shadow-glow: 0 0 24px rgba(164, 46, 74, 0.35);
+  --shadow-glow-strong: 0 0 48px rgba(164, 46, 74, 0.55);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* =========================================================================
+   Base
+   ========================================================================= */
+
+html {
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--color-bg-deepest);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Selection */
+::selection {
+  background: var(--color-accent);
+  color: var(--color-cream);
+}
+
+/* Scrollbar (subtle, themed) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+/* Focus ring (accessibility) */
+:focus-visible {
+  outline: 2px solid var(--color-accent-bright);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* =========================================================================
+   Utility helpers
+   ========================================================================= */
+
+/* Headlines: cinematic serif look */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+/* Gradient overlays for hero / cards */
+.gradient-bottom {
+  background: linear-gradient(
+    to top,
+    var(--color-bg-deepest) 0%,
+    rgba(8, 6, 6, 0.8) 30%,
+    rgba(8, 6, 6, 0.3) 60%,
+    transparent 100%
+  );
+}
+
+.gradient-bottom-strong {
+  background: linear-gradient(
+    to top,
+    var(--color-bg-deepest) 0%,
+    rgba(8, 6, 6, 0.95) 40%,
+    rgba(8, 6, 6, 0.5) 70%,
+    transparent 100%
+  );
+}
+
+.gradient-left {
+  background: linear-gradient(
+    to right,
+    var(--color-bg-deepest) 0%,
+    rgba(8, 6, 6, 0.8) 40%,
+    rgba(8, 6, 6, 0.3) 70%,
+    transparent 100%
+  );
+}
+
+.gradient-radial-glow {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(164, 46, 74, 0.15) 0%,
+    transparent 70%
+  );
+}
+
+/* Glass surface (header on scroll) */
+.glass {
+  background: rgba(13, 9, 9, 0.78);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+}
+
+/* Hide scrollbar on horizontal scrollers (movie rows) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Text gradients (for "EXCLUSIVE PREMIERE" tags etc.) */
+.text-gradient-brand {
+  background: linear-gradient(135deg, var(--color-cream), var(--color-vanilla));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Smooth scroll snap for carousels */
+.snap-x-mandatory {
+  scroll-snap-type: x mandatory;
+}
+.snap-start {
+  scroll-snap-align: start;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(164, 46, 74, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(164, 46, 74, 0.6);
+  }
+}
+.animate-pulse-glow {
+  animation: pulseGlow 2.4s ease-in-out infinite;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    var(--color-surface-elevated) 50%,
+    var(--color-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}

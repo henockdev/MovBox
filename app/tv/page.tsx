@@ -1,0 +1,72 @@
+import type { Metadata } from "next";
+import {
+  getBoxmoviesBrowse,
+  getBoxmoviesFilterOptions,
+} from "@/lib/data";
+import { BrowseClient } from "@/components/browse/BrowseClient";
+import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { SponsoredRow } from "@/components/ads/SponsoredRow";
+
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "TV Shows â€” Movbox",
+  description:
+    "Browse TV series by genre, country, year and language. Powered by boxmovies.org.",
+};
+
+export default async function TVPage() {
+  const [browse, options] = await Promise.all([
+    getBoxmoviesBrowse(2, { sort: "Hottest", perPage: 28 }).catch(() => ({
+      items: [],
+      hasMore: false,
+      nextPage: null,
+      totalCount: null,
+      page: 1,
+      perPage: 28,
+      channelId: 2 as const,
+      filters: { genre: null, country: null, year: null, language: null, sort: "Hottest", page: 1, perPage: 28 },
+    })),
+    getBoxmoviesFilterOptions(2).catch(() => ({
+      genre: ["All"],
+      country: ["All"],
+      year: ["All"],
+      language: ["All"],
+      sort: ["ForYou", "Hottest", "Latest", "Rating"],
+    })),
+  ]);
+
+  return (
+    <div className="min-h-screen pb-16 pt-16 md:pb-12 md:pt-20">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "TV Shows", path: "/tv" },
+        ]}
+      />
+      <div className="mx-auto w-full max-w-[1500px] px-3 sm:px-5 md:px-6">
+        <header className="mb-3 sm:mb-5 md:mb-6">
+          <h1 className="font-display text-2xl font-bold text-cream sm:text-3xl md:text-4xl">
+            TV Shows
+          </h1>
+          <p className="mt-1 text-xs text-text-secondary sm:text-sm md:text-base">
+            K-Drama, anime, sitcoms, reality TV & more â€” updated daily.
+          </p>
+        </header>
+      </div>
+
+      <BrowseClient
+        channelId={2}
+        showGenreAndLanguage
+        options={options}
+        initialItems={browse.items}
+        initialHasMore={browse.hasMore}
+        initialPage={browse.page}
+        initialTotalCount={browse.totalCount}
+        gridTitle="All TV Series"
+        emptyLabel="No TV series match these filters. Try widening your selection."
+      />
+      <SponsoredRow title="You might also like" />
+    </div>
+  );
+}

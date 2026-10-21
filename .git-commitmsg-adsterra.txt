@@ -1,0 +1,44 @@
+feat(ads): integrate Adsterra direct-link units (site-wide)
+
+Adds the two Adsterra script tags issued to the publisher account
+(zones pl31180787 + pl31180785) as a third revenue source alongside the
+existing ExoClick pre-roll, video slider and out-stream units.
+
+Why a hand-rolled injector instead of <Script>:
+
+Adsterra's loaders attach listeners to window/document and have no
+teardown API. Rendering them via <Script> inside a route-gated component
+would unmount/remount the tag on every client-side navigation and
+re-append the element each time, which buys nothing (their state already
+lives in the listeners) and risks duplicate impressions. So we append
+once, imperatively, guarded by a stable DOM id, and never touch them
+again.
+
+The entry-path decision is latched at first evaluation. That is a
+correctness requirement, not an optimisation: removing the <script>
+element on a later route change does NOT detach listeners it already
+attached, so "load on browse, unload on /watch" would be a false claim.
+We make one honest decision based on where the document load began.
+
+Placement: /watch is excluded by default. A popunder fired during a
+full-bleed playback session is the most hostile thing we could do to the
+one action that actually earns money, and it is the same reasoning that
+already excludes the ExoClick video slider there. Set
+NEXT_PUBLIC_ADSTERRA_ON_WATCH=1 to trade retention for fill; set
+NEXT_PUBLIC_ADSTERRA_ENABLED=0 to remove the tags entirely.
+
+Deliberately NOT wired into /api/ads/impression: that endpoint's
+HARD_CAP (3 / 30 min) is a contract for units we render ourselves.
+Counting Adsterra there would inflate the counter and suppress our own
+ExoClick units. Adsterra frequency is controlled per zone in their
+dashboard, not here.
+
+Kept two console diagnostics ([movbox:adsterra]) because the CDN for
+this domain is unreachable from the dev machine's network, so DOM
+inspection cannot confirm delivery locally - production console output
+is the verification path.
+
+Dashboard state recorded in lib/ads/adsterra.ts: Popunder_1 (31080286),
+SocialBar_1 (31080288) and Smartlink_1 (31080287) are all active.
+Smartlink is an off-site monetised shortener and is deliberately not
+wired into the site.
