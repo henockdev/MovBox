@@ -80,7 +80,48 @@ Implemented as `public/0455afc6243297c4e6c9.txt`.
 
 ## Network B — Adsterra
 
-**Not yet supplied.** Materials pending.
+Publisher account host: `profitableratecpmnetwork.com`.
+
+| Zone name | Zone ID | State | Format |
+| --- | --- | --- | --- |
+| `SocialBar_1` | `31080288` | Active | Social bar |
+| `Popunder_1` | `31080286` | Active | Popunder |
+| `Smartlink_1` | `31080287` | Active | Smartlink |
+
+### 1. Social bar — zone `31080288`
+
+```html
+<script src="https://pl31180787.profitableratecpmnetwork.com/4d/8e/8e/4d8e8e8c319c3cfa4ed4d9338662515f.js"></script>
+```
+
+### 2. Popunder — zone `31080286`
+
+```html
+<script src="https://pl31180785.profitableratecpmnetwork.com/c8/63/1f/c8631f19a926b1ce86bd661e287e1538.js"></script>
+```
+
+### 3. Smartlink — zone `31080287`
+
+A redirect destination, not a tag. Use as the click-through target for a
+sponsored card / the `/ad` landing flow:
+
+```
+https://www.profitableratecpmnetwork.com/yze0wqd6?key=f4fe1371dae7e93cde4f80cf5953c03f
+```
+
+### Owner intent for these three
+
+Popunder and smartlink are expected to be the higher-earning formats, and the
+owner accepts them because they monetise visitors who never play a title.
+Owner also asked that the social bar be styled to look good and invite clicks
+rather than being visually hidden.
+
+**Constraint that still applies:** the platform rules forbid accidental-click
+design — fake close buttons, ad-styled player controls, forced clicks, overlays
+that obstruct navigation, and downloads/plays disguised as buttons. "Inviting
+clicks" has to mean a clearly-labelled ad that looks well-made, not a
+misleading one. That boundary is non-negotiable and is a release requirement,
+not a preference.
 
 ---
 
