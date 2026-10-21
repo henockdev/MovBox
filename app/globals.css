@@ -231,3 +231,32 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
+
+/* ---------------------------------------------------------------------------
+   Ad layout reservations
+   ---------------------------------------------------------------------------
+   Third-party ad units are unversioned and can change size or position at
+   any time without notice. Anything we can reserve up front, we reserve, so
+   an ad can never cause a layout shift or cover a control the user needs.
+
+   --movbox-socialbar-h: height reserved for the Adsterra social bar, which
+   anchors to the bottom of the viewport and therefore sits exactly where the
+   fixed mobile nav lives. The nav is lifted by this much so it stays tappable.
+   Verified against the live unit; see components/ads/SiteAds.tsx for the
+   placement matrix. Set to 0 to disable the reservation.
+   --------------------------------------------------------------------------- */
+:root {
+  --movbox-socialbar-h: 0px;
+}
+
+@media (max-width: 767px) {
+  /* Lift the primary nav clear of the social bar. */
+  .movbox-mobile-nav {
+    bottom: var(--movbox-socialbar-h);
+  }
+
+  /* Keep the last row of page content reachable above the nav + bar. */
+  .movbox-has-socialbar-space {
+    padding-bottom: calc(3.5rem + var(--movbox-socialbar-h));
+  }
+}

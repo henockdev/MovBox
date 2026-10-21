@@ -3,6 +3,7 @@ import { Cinzel, Inter } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { Footer } from "@/components/layout/Footer";
+import { SiteAds } from "@/components/ads/SiteAds";
 import { SITE_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -91,9 +92,18 @@ export default function RootLayout({
     >
       <body className="flex min-h-dvh flex-col bg-bg-deepest text-text-primary">
         <Header />
-        <main className="flex-1 pb-16 md:pb-0">{children}</main>
+        {/* movbox-has-socialbar-space keeps the last row of content clear of
+            the fixed mobile nav AND the Adsterra social bar. Inert while
+            --movbox-socialbar-h is 0. See app/globals.css. */}
+        <main className="movbox-has-socialbar-space flex-1 pb-16 md:pb-0">
+          {children}
+        </main>
         <Footer />
         <MobileNav />
+        {/* Site-wide ad units. Mounted once, here, so no route can
+            accidentally double-load a tag. Placement matrix and the reasons
+            behind each exclusion live in components/ads/SiteAds.tsx. */}
+        <SiteAds />
       </body>
     </html>
   );

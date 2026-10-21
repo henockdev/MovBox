@@ -23,7 +23,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-800/80 bg-bg-deepest/95 shadow-elevated backdrop-blur-md md:hidden"
+      className="movbox-mobile-nav fixed inset-x-0 bottom-0 z-50 border-t border-zinc-800/80 bg-bg-deepest/95 shadow-elevated backdrop-blur-md md:hidden"
     >
       <ul className="flex items-stretch justify-around">
         {ITEMS.map((item) => {

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { MovieCard } from "@/components/home/MovieCard";
+import { DisplayAd } from "@/components/ads/DisplayAd";
 import { imageUrl } from "@/lib/image";
 import { toMediaCard } from "@/lib/adapters";
 import { cn } from "@/lib/utils";
@@ -230,6 +231,13 @@ export function TVDetailView({ details, related = [] }: TVDetailViewProps) {
       </section>
 
       {/* â”€â”€â”€ TABS â”€â”€â”€ */}
+      {/* HilltopAds multi-tag banner (zones 7538401-7538405). Sits in the
+          band between the hero and the tabs — in-flow, labelled, and inside
+          a fixed-height reserved slot so a creative that lands after paint
+          cannot shift the page (CLS). Takes the position of the
+          instant-message unit removed with the old ad provider. */}
+      <DisplayAd className="mx-auto max-w-7xl px-3 sm:px-5 md:px-6" />
+
       <nav className="border-b border-border">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
           <ul className="flex items-center gap-6 overflow-x-auto text-sm">

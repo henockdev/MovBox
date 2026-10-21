@@ -1,6 +1,22 @@
 # Ad network materials — reference record
 
-**Status: STORED, NOT INTEGRATED. No script below is loaded by the application.**
+**Status: INTEGRATED 2026-10-21. All five publisher tags below are live.**
+
+- **HilltopAds** — VAST pre-roll on `/watch`, multi-tag banner on
+  `/movie/[id]` and `/tv/[id]`, video slider on browse pages (excluded from
+  `/watch` and detail pages on purpose). Config: `lib/ads/config.ts`.
+- **Adsterra** — popunder + social bar on all routes, smartlink as the CTA on
+  the `/ad` landing page. Config: `lib/ads/config.ts`.
+- Kill switch: set `NEXT_PUBLIC_ADS_ENABLED=false` in the Vercel env to
+  disable every unit on the next deploy. Defaults to enabled.
+- Open tuning item: `--movbox-socialbar-h` in `app/globals.css` is still
+  `0px`. The real Adsterra social bar height is unmeasured — verify it clears
+  the fixed mobile nav at <=767px and set that one value.
+- Known: the live VAST response declares `skipoffset="00:00:15"`, so the
+  pre-roll's skip button unlocks at 15s, not the 5s fallback. That is the
+  network's value and is read at runtime, not assumed. If a 15s mandatory
+  pre-roll is too aggressive, ask Hilltop to shorten it rather than
+  overriding it client-side (VAST treats skipoffset as a minimum).
 
 This file records the exact publisher-supplied materials verbatim so they are
 reviewable and diffable before any of them is wired in. Nothing in this file is

@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import type { BoxSource, BoxCaption } from "@/lib/types";
 import { recordUserProgress } from "@/lib/user-data";
+import { PREROLL_TRIGGER_EVENT } from "@/lib/ads/config";
+import { VideoPreroll } from "@/components/ads/VideoPreroll";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -739,6 +741,14 @@ export function Player({
           setError("Playback blocked. Tap play to retry.");
         });
       }
+
+      // Signal genuine play intent to the ad layer. A DOM event rather than
+      // component state on purpose: this component's hook count is pinned
+      // (see the note by the early returns) and must not grow. The pre-roll
+      // subscribes, owns all of its own state, and pauses/resumes `v`
+      // itself — the existing onPlay/onPause handlers keep the chrome in
+      // sync without Player knowing ads exist.
+      window.dispatchEvent(new Event(PREROLL_TRIGGER_EVENT));
     } else {
       v.pause();
     }
@@ -1098,6 +1108,14 @@ export function Player({
           if (!error) setError("Stream error. Try a different source.");
         }}
       />
+
+      {/* HilltopAds VAST pre-roll (zone 7538417). Renders nothing at all
+          until the viewer actually presses play, and renders nothing after
+          it has finished or failed. Self-contained by design — see
+          components/ads/VideoPreroll.tsx. Gated on !isLoading so we never
+          stack it on the loading skeleton, and on !error so a broken stream
+          never gets an ad on top of its error message. */}
+      {!isLoading && !error && <VideoPreroll contentRef={videoRef} />}
 
       {/* Source fallback banner */}
       {loading && autoFallbackCount > 0 && sources.length > 1 && (
