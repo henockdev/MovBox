@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Flame } from "lucide-react";
 import { TrendingRow } from "@/components/home/TrendingRow";
-import { SponsoredRow } from "@/components/ads/SponsoredRow";
 import { getBoxmoviesTrending } from "@/lib/data";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import type { MediaCard } from "@/lib/types";
@@ -9,7 +8,7 @@ import type { MediaCard } from "@/lib/types";
 export const revalidate = 1800; // 30 min
 
 export const metadata: Metadata = {
-  title: "Trending â€” Movbox",
+  title: "Trending Ã¢â‚¬â€ Movbox",
   description: "What's hot on Movbox right now.",
 };
 
@@ -92,8 +91,6 @@ export default async function TrendingPage() {
           iconClassName="text-accent-bright"
           items={topRated}
         />
-        {/* Sponsored cards after the third row, matching the home page. */}
-        <SponsoredRow title="You might also like" />
         <TrendingRow
           title="New Releases"
           iconName="sparkles"

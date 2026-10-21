@@ -4,7 +4,6 @@ import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
 import { TVDetailView } from "@/components/detail/TVDetailView";
 import { TVShowJsonLd } from "@/components/seo/MovieJsonLd";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
-import { InstantMessageAd } from "@/components/ads/InstantMessageAd";
 
 export const revalidate = 3600;
 
@@ -51,9 +50,6 @@ export default async function TVDetailPage({ params }: TVDetailPageProps) {
     <>
       <TVShowJsonLd details={details} />
       <TVDetailView details={details} related={related} />
-      {/* ExoClick native instant message (zone 6057176) — mirrors the movie
-          detail page so both intent surfaces carry the same inventory. */}
-      <InstantMessageAd className="mb-10 md:mb-14" />
     </>
   );
 }

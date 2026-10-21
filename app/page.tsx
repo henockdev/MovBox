@@ -3,10 +3,6 @@ import { MovieRow } from "@/components/home/MovieRow";
 import { PromoBanner } from "@/components/home/PromoBanner";
 import { FeatureFooter } from "@/components/home/FeatureFooter";
 import { ContinueWatchingRow } from "@/components/home/ContinueWatchingRow";
-import { SponsoredRow } from "@/components/ads/SponsoredRow";
-
-/** Which movie row the sponsored cards follow on the home page. */
-const SPONSORED_AFTER_ROW = 2;
 import { getBoxmoviesHome } from "@/lib/data";
 import type { MediaCard, BoxMediaCard } from "@/lib/types";
 
@@ -103,11 +99,6 @@ export default async function HomePage() {
           <section className="mx-auto max-w-7xl px-4 pt-8 md:px-6 md:pt-10 lg:px-8">
             <MovieRow title={section.title} items={section.items} />
           </section>
-          {i === SPONSORED_AFTER_ROW && (
-            <div className="mx-auto max-w-7xl py-6 md:py-8">
-              <SponsoredRow title="You might also like" />
-            </div>
-          )}
         </div>
       ))}
     </div>

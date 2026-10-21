@@ -32,8 +32,6 @@ import {
   WifiOff,
 } from "lucide-react";
 import type { BoxSource, BoxCaption } from "@/lib/types";
-import { PrerollAd } from "@/components/ads/PrerollAd";
-import { requestOutStreamAd } from "@/components/ads/ExoclickOutStream";
 import { recordUserProgress } from "@/lib/user-data";
 import { cn } from "@/lib/utils";
 
@@ -267,10 +265,6 @@ export function Player({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
   const [userRating, setUserRating] = useState<"up" | "down" | null>(null);
-  // Pre-roll in-stream video ad via ExoClick VAST (zone 6049850).
-  // Shows once per session on the first user-initiated play. The
-  // component handles its own session cap (localStorage).
-  const [showPreroll, setShowPreroll] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subtitleMenuOpen, setSubtitleMenuOpen] = useState(false);
@@ -335,14 +329,12 @@ export function Player({
     };
   }, []);
 
-  // NOTE: the pre-roll mute behaviour lives in the `[muted, volume,
-  // showPreroll]` effect below (see the comment there). It used to be
-  // its own effect here, but adding a 52nd hook to this component
-  // crashed the page for anyone holding a cached 51-hook chunk —
-  // React threw #310 ("Rendered more hooks than during the previous
-  // render") and the whole watch page fell into the error boundary.
-  // Keep this component's hook count stable; merge new behaviour into
-  // existing effects instead of adding new ones.
+  // NOTE: keep this component's hook count stable. Adding a hook once
+  // crashed the page for anyone holding a cached chunk built against the
+  // previous count — React threw #310 ("Rendered more hooks than during
+  // the previous render") and the whole watch page fell into the error
+  // boundary. Merge new behaviour into existing effects instead of
+  // adding new ones.
 
   // Attach source + subtitles to the <video> element.
   useEffect(() => {
@@ -520,24 +512,6 @@ export function Player({
     bufferedEvents.forEach((e) => video.addEventListener(e, paintBuffered));
     paintBuffered();
 
-    // ---- Out-stream ad on pause --------------------------------------
-    // A pause is the cheapest moment to show a video ad: the viewer has
-    // already stopped, nothing is competing for their attention, and
-    // resuming costs one tap. Much lower pressure than the pre-roll,
-    // which interrupts the reason they came.
-    //
-    // Deliberately a DOM listener inside this existing effect rather than
-    // a new hook or a new prop — this component's hook count is pinned and
-    // its effects are all above the early returns. requestOutStreamAd()
-    // is a module function that self-guards (watch page only, 10-minute
-    // cooldown), so this can fire freely on every pause.
-    const onPause = () => {
-      // Reaching the end is not a pause the viewer chose; don't ambush it.
-      if (video.ended) return;
-      requestOutStreamAd();
-    };
-    video.addEventListener("pause", onPause);
-
     return () => {
       clearTimeout(stallTimer);
       video.removeEventListener("loadedmetadata", onLoaded);
@@ -546,7 +520,6 @@ export function Player({
       video.removeEventListener("loadeddata", markSettled);
       video.removeEventListener("progress", markSettled);
       video.removeEventListener("error", markSettled);
-      video.removeEventListener("pause", onPause);
       bufferedEvents.forEach((e) => video.removeEventListener(e, paintBuffered));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -604,16 +577,13 @@ export function Player({
     video.playbackRate = playbackRate;
   }, [playbackRate]);
 
-  // Mute/volume sync. While the pre-roll ad is on screen the main
-  // video keeps playing silently underneath, so the user hears the ad
-  // rather than the movie; the moment the ad dismisses we restore
-  // their real mute preference.
+  // Mute/volume sync.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = showPreroll ? true : muted;
+    video.muted = muted;
     video.volume = volume;
-  }, [muted, volume, showPreroll]);
+  }, [muted, volume]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -769,25 +739,10 @@ export function Player({
           setError("Playback blocked. Tap play to retry.");
         });
       }
-      // Then queue the preroll if we haven't shown it this session.
-      if (!showPreroll) {
-        setShowPreroll(true);
-      }
     } else {
       v.pause();
     }
-  }, [showPreroll]);
-
-  const handlePrerollComplete = useCallback(() => {
-    setShowPreroll(false);
-    // v.play() was already called in togglePlay inside the user
-    // gesture — no need to call it again from here (which would
-    // otherwise run outside the gesture and get blocked).
-    // Restore mute state since the preroll-effect below will have
-    // muted the main video.
-    const v = videoRef.current;
-    if (v) v.muted = muted;
-  }, [muted]);
+  }, []);
 
   const handleVolumeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1090,9 +1045,6 @@ export function Player({
         onClick={togglePlay}
         onPlay={() => {
           setPlaying(true);
-          // The pre-roll trigger fires from a user click on the
-          // overlay, not from the video's own onPlay (which also
-          // fires when the pre-roll finishes and we call .play()).
         }}
         onPause={() => {
           setPlaying(false);
@@ -1127,9 +1079,7 @@ export function Player({
           // Muted-then-unmute dance: we muted v before play() to
           // satisfy Chrome's autoplay policy. Now that playback is
           // actually running, restore the user's preferred mute state.
-          // (Skipped during preroll — the showPreroll effect keeps it
-          // muted while the ad plays.)
-          if (!showPreroll && !muted && videoRef.current) {
+          if (!muted && videoRef.current) {
             videoRef.current.muted = false;
           }
         }}
@@ -1148,14 +1098,6 @@ export function Player({
           if (!error) setError("Stream error. Try a different source.");
         }}
       />
-
-      {/* In-stream video pre-roll (ExoClick VAST). Sits over the player
-          on the first user-initiated play of a session, then dismisses
-          and the actual content starts. The Player keeps its own
-          session cap via the component's localStorage check. */}
-      {showPreroll && !isLoading && (
-        <PrerollAd onComplete={handlePrerollComplete} />
-      )}
 
       {/* Source fallback banner */}
       {loading && autoFallbackCount > 0 && sources.length > 1 && (

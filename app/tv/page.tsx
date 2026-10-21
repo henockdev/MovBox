@@ -1,16 +1,15 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import {
   getBoxmoviesBrowse,
   getBoxmoviesFilterOptions,
 } from "@/lib/data";
 import { BrowseClient } from "@/components/browse/BrowseClient";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
-import { SponsoredRow } from "@/components/ads/SponsoredRow";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "TV Shows â€” Movbox",
+  title: "TV Shows Ã¢â‚¬â€ Movbox",
   description:
     "Browse TV series by genre, country, year and language. Powered by boxmovies.org.",
 };
@@ -50,7 +49,7 @@ export default async function TVPage() {
             TV Shows
           </h1>
           <p className="mt-1 text-xs text-text-secondary sm:text-sm md:text-base">
-            K-Drama, anime, sitcoms, reality TV & more â€” updated daily.
+            K-Drama, anime, sitcoms, reality TV & more Ã¢â‚¬â€ updated daily.
           </p>
         </header>
       </div>
@@ -66,7 +65,6 @@ export default async function TVPage() {
         gridTitle="All TV Series"
         emptyLabel="No TV series match these filters. Try widening your selection."
       />
-      <SponsoredRow title="You might also like" />
     </div>
   );
 }

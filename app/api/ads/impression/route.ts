@@ -9,8 +9,8 @@ import { createClient } from "@supabase/supabase-js";
  * key missing, etc.), we just return 200 and silently no-op — the
  * client-side localStorage cap still works.
  *
- * Callers: components/ads/ExoclickBanner.tsx (slot "display") and
- * components/ads/PrerollAd.tsx (slot "in-stream").
+ * Callers: any ad placement component that needs a cross-device cap.
+ * Network-agnostic — it records a slot name, not a provider.
  *
  * Body: { slot: string, sessionId?: string }
  * Returns: { ok, count, capped } where count = this user's

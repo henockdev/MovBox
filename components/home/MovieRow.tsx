@@ -16,9 +16,8 @@ interface MovieRowProps {
   iconClassName?: string;
   /**
    * Kept for API compatibility — set to 0 to disable in-feed sponsored
-   * cards (neither Adsterra nor ExoClick offers a native card-format
-   * inventory; the home page places display banners between rows
-   * instead).
+   * cards. No caller passes it and this row renders pure content; whether
+   * a page carries sponsored inventory is decided at the page level.
    */
   adEvery?: number;
 }
@@ -31,11 +30,8 @@ interface MovieRowProps {
  * `type` and `id` fields — this row doesn't accept an href prop because
  * functions can't cross the Server→Client Component boundary.
  *
- * In-feed sponsored cards used to be injected every Nth card using
- * Adsterra's smartlink format. Neither Adsterra nor ExoClick ships a
- * card-format inventory, so this row is pure-content now. Ad revenue
- * lives in the ExoClick in-stream pre-roll (watch page) + the display
- * banner between home-page rows.
+ * This row renders pure content. Any sponsored inventory is placed by
+ * the page, not injected between cards.
  */
 export function MovieRow({
   title,

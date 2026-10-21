@@ -5,7 +5,6 @@ import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
 import { MovieDetailView } from "@/components/detail/MovieDetailView";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { MovieJsonLd } from "@/components/seo/MovieJsonLd";
-import { InstantMessageAd } from "@/components/ads/InstantMessageAd";
 
 export const revalidate = 3600;
 
@@ -52,10 +51,6 @@ export default async function MovieDetailPage({ params }: MovieDetailPageProps) 
     <>
       <MovieJsonLd details={details} />
       <MovieDetailView details={details} related={related} />
-      {/* ExoClick native instant message (zone 6057176). Detail pages carry
-          no other native inventory, and this is the deepest-intent surface we
-          have — right before the player. */}
-      <InstantMessageAd className="mb-10 md:mb-14" />
     </>
   );
 }

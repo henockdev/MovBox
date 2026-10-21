@@ -10,8 +10,9 @@ import { SITE_NAME, SITE_URL } from "@/lib/constants";
  * WebView, no chromium sandbox crashes — just a normal page shown in the
  * user's existing Chrome session.
  *
- * Layout is minimal, no nav. The ExoClick display zone renders inline so
- * the user always sees at least one sponsor.
+ * Layout is minimal, no nav. The page is the click-through destination for
+ * in-app sponsored cards; the sponsor's creative is served by whichever
+ * network the card belongs to.
  */
 
 export const metadata: Metadata = {
