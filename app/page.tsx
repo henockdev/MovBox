@@ -1,12 +1,32 @@
+import type { Metadata } from "next";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { MovieRow } from "@/components/home/MovieRow";
 import { PromoBanner } from "@/components/home/PromoBanner";
 import { FeatureFooter } from "@/components/home/FeatureFooter";
 import { ContinueWatchingRow } from "@/components/home/ContinueWatchingRow";
 import { getBoxmoviesHome } from "@/lib/data";
+import { pageSeo } from "@/lib/seo";
 import type { MediaCard, BoxMediaCard } from "@/lib/types";
 
 export const revalidate = 1800; // 30 min
+
+/**
+ * The homepage inherits the root layout's title and description. We
+ * restate them here so the page can also carry a self-canonical and a
+ * matching og:url — without those, every social share of the homepage
+ * resolved to a blank card. `absoluteTitle` keeps the exact wording the
+ * site already had, so nothing about the live title changes.
+ */
+export const metadata: Metadata = pageSeo({
+  path: "/",
+  title: "Movbox — Watch Movies, TV Shows & More",
+  description:
+    "Stream the latest movies and TV shows in 4K Ultra HD. Browse trending, top rated, and exclusive premieres — anywhere, anytime.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  absoluteTitle: true,
+});
 
 function toMediaCard(c: BoxMediaCard): MediaCard {
   return {

@@ -33,6 +33,10 @@ function cleanGenres(genres?: { id: number; name: string }[] | string[] | null) 
 
 export function MovieJsonLd({ details }: JsonLdProps) {
   const pageUrl = `${SITE_URL}/movie/${encodeURIComponent(details.detailPath)}`;
+  // The player lives on the watch route, not on this info page. Google
+  // requires `embedUrl` to point at the page that actually embeds the
+  // video, so it must be the watch URL.
+  const watchUrl = `${SITE_URL}/watch/movie/${encodeURIComponent(details.detailPath)}`;
   const thumbnail = details.backdropUrl ?? details.posterUrl;
   const rating =
     typeof details.rating === "number" && details.rating > 0
@@ -82,8 +86,13 @@ export function MovieJsonLd({ details }: JsonLdProps) {
 
   // VideoObject — what powers the Google Videos tab + video
   // carousel. Must include thumbnail, name, description, uploadDate,
-  // and a contentUrl or embedUrl. We use the page URL as embedUrl
-  // (Google will discover the actual stream via the iframe).
+  // and a contentUrl or embedUrl.
+  //
+  // `embedUrl` MUST point at the page that actually embeds the player,
+  // which is the watch route — not this info page. `contentUrl` would have
+  // to be the media file itself; the stream URL is signed and short-lived,
+  // so publishing one would advertise a dead link. Google accepts
+  // embedUrl alone.
   const video = {
     "@type": "VideoObject",
     "@id": `${pageUrl}#video`,
@@ -91,8 +100,7 @@ export function MovieJsonLd({ details }: JsonLdProps) {
     description: details.synopsis,
     thumbnailUrl: thumbnail ? [thumbnail] : undefined,
     uploadDate: details.releaseDate || undefined,
-    embedUrl: pageUrl,
-    contentUrl: pageUrl,
+    embedUrl: watchUrl,
     isFamilyFriendly: true,
     inLanguage: "en",
     duration: details.durationSeconds
@@ -153,6 +161,12 @@ export function MovieJsonLd({ details }: JsonLdProps) {
  */
 export function TVShowJsonLd({ details }: JsonLdProps) {
   const pageUrl = `${SITE_URL}/tv/${encodeURIComponent(details.detailPath)}`;
+  // The player lives on the watch route. Point embedUrl at the first
+  // episode of season 1 — that is a page that genuinely embeds a video,
+  // which is what Google checks for.
+  const watchUrl = `${SITE_URL}/watch/tv/${encodeURIComponent(
+    details.detailPath
+  )}?s=1&e=1`;
   const thumbnail = details.backdropUrl ?? details.posterUrl;
   const rating =
     typeof details.rating === "number" && details.rating > 0
@@ -207,10 +221,10 @@ export function TVShowJsonLd({ details }: JsonLdProps) {
     description: details.synopsis,
     thumbnailUrl: thumbnail ? [thumbnail] : undefined,
     uploadDate: details.releaseDate || undefined,
-    embedUrl: pageUrl,
-    contentUrl: pageUrl,
+    embedUrl: watchUrl,
     isFamilyFriendly: true,
     inLanguage: "en",
+    partOfSeries: { "@id": `${pageUrl}#tv` },
   };
 
   const breadcrumbs = {

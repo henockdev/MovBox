@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/auth/server";
 import { ProfileClient } from "./ProfileClient";
+import { pageSeo } from "@/lib/seo";
 
 export const revalidate = 0; // always fresh
 
-export const metadata: Metadata = {
-  title: "Profile — Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/profile",
+  title: "Profile",
   description: "Your Movbox account and watch history.",
-};
+  noindex: true,
+});
 
 export default async function ProfilePage() {
   let user: {

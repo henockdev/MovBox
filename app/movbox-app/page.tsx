@@ -4,12 +4,14 @@ import { InstallCTA } from "@/components/ads/InstallCTA";
 import { WaitlistForm } from "@/components/ads/WaitlistForm";
 import { FaqJsonLd } from "@/components/seo/FaqJsonLd";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { pageSeo } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageSeo({
+  path: "/movbox-app",
   title: "Movbox App — Coming Soon",
   description:
     "The Movbox Android app is in development. Get notified when it launches.",
-};
+});
 
 const FAQ_ITEMS = [
   {

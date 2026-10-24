@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FilterSidebar â€” vertical column of <FilterChips> sections for the
+ * FilterSidebar — vertical column of <FilterChips> sections for the
  * browse pages. Matches the boxmovies.org sidebar pattern: each axis
  * (Genre / Country / Language / Year / Sort) is a small collapsible
  * section with a chip cloud.

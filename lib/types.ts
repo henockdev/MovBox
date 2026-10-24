@@ -22,7 +22,13 @@ export interface BoxSource {
   vipLocked?: boolean;
   /** Subtitle tracks attached to this specific source. */
   subtitles?: BoxCaption[];
-  provider: { id: "boxmovies"; name: "BoxMovies" };
+  /**
+   * Which backend resolved this source.
+   *
+   * "onstream" — the OnStream (aoneroom) mobile BFF, resolved by our own
+   *   server. "boxmovies" — the thin relay, the fallback path.
+   */
+  provider: { id: "boxmovies" | "onstream"; name: string };
 }
 
 /** A subtitle track (SRT/VTT) from boxmovies. The URL is signed and works directly. */

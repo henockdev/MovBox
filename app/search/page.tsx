@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SearchClient } from "./SearchClient";
+import { pageSeo } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Search — Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/search",
+  title: "Search",
   description: "Search for movies and TV shows on Movbox.",
-};
+  noindex: true,
+});
 
 interface SearchPageProps {
   searchParams: Promise<{ q?: string; type?: string }>;

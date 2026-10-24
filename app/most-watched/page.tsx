@@ -3,14 +3,16 @@ import { Flame } from "lucide-react";
 import { MediaGrid } from "@/components/media/MediaGrid";
 import { getBoxmoviesHome } from "@/lib/data";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { pageSeo } from "@/lib/seo";
 import type { MediaCard } from "@/lib/types";
 
 export const revalidate = 1800;
 
-export const metadata: Metadata = {
-  title: "Most Watched Ã¢â‚¬â€ Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/most-watched",
+  title: "Most Watched",
   description: "The most-watched titles on Movbox right now.",
-};
+});
 
 function toMediaCard(c: {
   detailPath: string;

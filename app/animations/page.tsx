@@ -6,20 +6,22 @@ import {
 } from "@/lib/data";
 import { BrowseClient } from "@/components/browse/BrowseClient";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { pageSeo } from "@/lib/seo";
 
 export const revalidate = 600;
 
-export const metadata: Metadata = {
-  title: "Animations Ã¢â‚¬â€ Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/animations",
+  title: "Animations",
   description:
-    "Anime, cartoons, and animated movies & series. Powered by boxmovies.org.",
-};
+    "Anime, cartoons, and animated movies & series. Stream them free on Movbox.",
+});
 
 export default async function AnimationsPage() {
   // Real anime from boxmovies's /animated-series h5-api. The /browse
   // endpoint with channelId=7 maps internally to upstream channelId=1006
   // (the "Anime" channel on boxmovies), so this returns the full vast
-  // anime catalog Ã¢â‚¬â€ not the small "Anime" section from the home JSON.
+  // anime catalog — not the small "Anime" section from the home JSON.
   const [browse, options] = await Promise.all([
     getBoxmoviesBrowse(7, { sort: "Hottest", perPage: 28 }).catch(() => ({
       items: [],
@@ -56,7 +58,7 @@ export default async function AnimationsPage() {
               Animations
             </h1>
             <p className="mt-0.5 text-xs text-text-secondary sm:mt-1 sm:text-sm md:text-base">
-              Anime, cartoons & animated films Ã¢â‚¬â€ infinite scroll.
+              Anime, cartoons & animated films — infinite scroll.
             </p>
           </div>
         </header>

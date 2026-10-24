@@ -1,271 +1,126 @@
-"use client";
+import type { Metadata } from "next";
+import WatchTVClient from "@/components/watch/WatchTVClient";
+import { WatchJsonLd } from "@/components/seo/WatchJsonLd";
+import { getBoxmoviesDetail } from "@/lib/data";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { baseShowTitle, clampEpisodeNumber, pageSeo } from "@/lib/seo";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { WatchSession } from "@/components/watch/WatchSession";
-import { AutoplayOverlay } from "@/components/watch/AutoplayOverlay";
-import { useSources } from "@/lib/useSources";
-import { useTVWatch } from "@/lib/watch-context";
-import type { BoxSource, BoxCaption } from "@/lib/types";
-import type { SeasonInfo } from "@/components/player/SeasonPicker";
-import { cn } from "@/lib/utils";
+export const revalidate = 3600;
 
 /**
- * TV watch page — single stable React instance for the entire show.
+ * Server half of the TV watch route.
  *
- *   /watch/tv/<id>     ← the page; reads ?s=1&e=1 from the URL
- *   /watch/tv/<id>/1/1 ← legacy URL; redirects to ?s=1&e=1 via the
- *                         [season]/[episode]/page.tsx below.
+ * The player itself lives in components/watch/WatchTVClient.tsx (a
+ * client component) so switching episodes never unmounts it. This file
+ * exists so the route can emit per-episode metadata in the SERVED HTML:
+ * title, description, canonical and JSON-LD.
  *
- * Because the page is at a single segment (`/watch/tv/[id]`), Next.js
- * never unmounts it when the user clicks a different episode — it just
- * re-renders with the new search params. That means the player, the
- * SeasonPicker, the Similar row, and all the watch-session state stay
- * mounted. The only thing that re-runs is the sources fetch for the new
- * episode, and we show a tiny inline pill while that's in flight.
+ * Before the split this route was a pure client component, so every
+ * episode of every show answered crawlers with the identical site-wide
+ * default title and no canonical — the whole episode catalogue looked
+ * like one duplicated page.
+ *
+ * The episode is expressed as `?s=<season>&e=<episode>` — the URL shape
+ * the site already used. Nothing about the address scheme changed, so
+ * no existing link or ranking moves.
  */
-export default function WatchTVPageOuter() {
-  return (
-    <Suspense fallback={null}>
-      <WatchTVPage />
-    </Suspense>
-  );
+
+interface WatchTVPageProps {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-function WatchTVPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+async function readEpisode(
+  searchParams: WatchTVPageProps["searchParams"]
+): Promise<{ season: number; episode: number }> {
+  const sp = (await searchParams.catch(
+    () => ({}) as Record<string, string | string[] | undefined>
+  )) || ({} as Record<string, string | string[] | undefined>);
+  return {
+    season: clampEpisodeNumber(sp.s, 1, 1, 99),
+    episode: clampEpisodeNumber(sp.e, 1, 1, 9999),
+  };
+}
 
-  const { details, related, watchlistMedia } = useTVWatch();
-
-  // Defaults: S1 E1. Clamp to known seasons/episodes.
-  const season = clamp(parseInt(searchParams.get("s") ?? "1", 10), 1, 99);
-  const episode = clamp(parseInt(searchParams.get("e") ?? "1", 10), 1, 9999);
-
-  // If the user landed on the bare /watch/tv/<id> URL with no search
-  // params, silently replace it with the canonical ?s=1&e=1 form so
-  // deep links, the back button, and shareable URLs all carry the
-  // episode info.
-  useEffect(() => {
-    if (!searchParams.get("s") || !searchParams.get("e")) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("s", String(season));
-      params.set("e", String(episode));
-      router.replace(
-        `/watch/tv/${encodeURIComponent(details.detailPath)}?${params.toString()}`,
-        { scroll: false }
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Keep previous sources/captions mounted while the new ones load,
-  // so the player never blanks out on episode change.
-  const [prevSources, setPrevSources] = useState<BoxSource[]>([]);
-  const [prevCaptions, setPrevCaptions] = useState<BoxCaption[]>([]);
-
-  // Autoplay state. When the player's onEnded fires, we set
-  // `autoplayOpen` with the next episode/season info. The
-  // AutoplayOverlay runs a 5s countdown; on completion it calls
-  // goToEpisode(season, episode).
-  const [autoplay, setAutoplay] = useState<{
-    nextSeason: number;
-    nextEpisode: number;
-    nextLabel: string;
-  } | null>(null);
-
-  const { data, loading } = useSources({
-    detailPath: details.detailPath,
-    season,
-    episode,
-  });
-
-  const sources = useMemo(() => data?.sources ?? [], [data]);
-  const captions = useMemo(() => data?.captions ?? [], [data]);
-
-  useEffect(() => {
-    if (sources.length > 0) {
-      setPrevSources(sources);
-      setPrevCaptions(captions);
-    }
-  }, [sources, captions]);
-
-  const activeSources = sources.length > 0 ? sources : prevSources;
-  const activeCaptions = sources.length > 0 ? captions : prevCaptions;
-  const isSwitching = loading && activeSources.length > 0;
-
-  // Resolve episode nav.
-  const currentSeason = details.seasons.find((s) => s.season === season);
-  const episodes = currentSeason?.episodes ?? [];
-  const currentEpisodeIdx = episodes.indexOf(episode);
-  const prevEp =
-    currentEpisodeIdx > 0 ? episodes[currentEpisodeIdx - 1] : null;
-  const nextEp =
-    currentEpisodeIdx >= 0 && currentEpisodeIdx < episodes.length - 1
-      ? episodes[currentEpisodeIdx + 1]
-      : null;
-  const nextSeason = details.seasons.find((s) => s.season === season + 1);
-
-  const year = details.releaseYear?.toString() ?? "";
-
-  function goToEpisode(s: number, e: number) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("s", String(s));
-    params.set("e", String(e));
-    router.replace(`/watch/tv/${encodeURIComponent(details.detailPath)}?${params.toString()}`, { scroll: false });
+export async function generateMetadata({
+  params,
+  searchParams,
+}: WatchTVPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const { season, episode } = await readEpisode(searchParams);
+  const details = await getBoxmoviesDetail(id).catch(() => null);
+  if (!details) {
+    return pageSeo({
+      path: `/watch/tv/${encodeURIComponent(id)}`,
+      title: "Watch",
+      description: `Watch on ${SITE_NAME}.`,
+      noindex: true,
+    });
   }
 
+  const show = baseShowTitle(details.title);
+  const path = `/watch/tv/${encodeURIComponent(
+    details.detailPath
+  )}?s=${season}&e=${episode}`;
+
+  const synopsis = (details.synopsis || "").trim();
+  const description = `Watch ${show} season ${season} episode ${episode} free on ${SITE_NAME}.${
+    synopsis ? ` ${synopsis.slice(0, 160)}` : ""
+  }`.trim();
+
+  return pageSeo({
+    path,
+    title: `Watch ${show} Season ${season} Episode ${episode}`,
+    description,
+    type: "video.episode",
+    image: details.backdropUrl ?? details.posterUrl,
+    imageWidth: 1280,
+    imageHeight: 720,
+    keywords: [show, "full episode", "watch online", "free streaming"].filter(
+      Boolean
+    ),
+  });
+}
+
+export default async function WatchTVPage({
+  params,
+  searchParams,
+}: WatchTVPageProps) {
+  const { id } = await params;
+  const { season, episode } = await readEpisode(searchParams);
+  const details = await getBoxmoviesDetail(id).catch(() => null);
+
+  const show = baseShowTitle(details?.title ?? "");
+  const url = `${SITE_URL}/watch/tv/${encodeURIComponent(
+    details?.detailPath ?? id
+  )}?s=${season}&e=${episode}`;
+
   return (
-    <div className="bg-bg-deepest">
-      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-bg-deepest/90 px-3 py-2.5 backdrop-blur sm:px-5 sm:py-3 md:px-6">
-        <Button asChild variant="ghost" size="icon" aria-label="Back">
-          <Link href={`/tv/${encodeURIComponent(details.detailPath)}`}>
-            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Link>
-        </Button>
-        <div className="min-w-0 flex-1">
-          <h1 className="line-clamp-1 font-display text-sm font-semibold text-cream sm:text-base md:text-lg">
-            {details.title}
-          </h1>
-          <p className="text-[11px] text-text-muted sm:text-xs">
-            S{season} · E{episode}
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
-          {prevEp != null ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Previous episode"
-              onClick={() => goToEpisode(season, prevEp)}
-            >
-              <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            </Button>
-          ) : null}
-          {nextEp != null ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Next episode"
-              onClick={() => goToEpisode(season, nextEp)}
-            >
-              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            </Button>
-          ) : nextSeason ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Next season"
-              onClick={() => goToEpisode(nextSeason.season, 1)}
-            >
-              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            </Button>
-          ) : null}
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-0 pb-12 pt-0 sm:px-3 sm:pt-3 md:px-6 md:pt-6">
-        {/* Page is ALWAYS rendered with the player area visible. No full
-            PageLoader flash on episode change — only a small inline pill. */}
-        <WatchSession
-          type="tv"
-          detailPath={details.detailPath}
-          sources={activeSources}
-          captions={activeCaptions}
-          title={details.title}
-          year={year}
-          runtime={null}
-          voteAverage={details.rating ?? 0}
-          posterUrl={details.posterUrl}
-          backdropUrl={details.backdropUrl}
-          overview={details.synopsis}
-          genres={(details.genres ?? []).map((g, i) => ({ id: i, name: g }))}
-          country={details.country ?? null}
-          releaseDate={details.releaseDate || ""}
-          availableSubtitles={details.availableSubtitleLanguages}
-          seasonNumber={season}
-          episodeNumber={episode}
-          seasons={details.seasons as SeasonInfo[]}
-          related={related}
-          watchlistMedia={watchlistMedia}
-          onEnded={() => {
-            // Resolve the next episode and open the autoplay overlay.
-            // If there's a next episode in the current season, use it.
-            // Otherwise jump to the first episode of the next season.
-            // If neither, don't open the overlay (end of series).
-            if (nextEp != null) {
-              setAutoplay({
-                nextSeason: season,
-                nextEpisode: nextEp,
-                nextLabel: `S${season} · E${nextEp}`,
-              });
-            } else if (nextSeason) {
-              setAutoplay({
-                nextSeason: nextSeason.season,
-                nextEpisode: 1,
-                nextLabel: `S${nextSeason.season} · E1`,
-              });
-            }
+    <>
+      {details ? (
+        <WatchJsonLd
+          url={url}
+          title={`${show} Season ${season} Episode ${episode}`}
+          description={
+            details.synopsis ||
+            `Watch ${show} season ${season} episode ${episode} free on ${SITE_NAME}.`
+          }
+          thumbnail={details.backdropUrl ?? details.posterUrl}
+          durationSeconds={details.durationSeconds}
+          uploadDate={details.releaseDate}
+          entity={{
+            type: "TVSeries",
+            name: show,
+            url: `${SITE_URL}/tv/${encodeURIComponent(details.detailPath)}`,
+            description: details.synopsis,
+            image: details.backdropUrl ?? details.posterUrl,
+            datePublished: details.releaseDate,
           }}
+          season={season}
+          episode={episode}
         />
-
-        {/* Autoplay countdown — appears on top of the player when
-            the current episode ends. User can cancel or hit "Play
-            now" to skip the countdown. */}
-        {autoplay ? (
-          <AutoplayOverlay
-            nextTitle={details.title}
-            nextLabel={autoplay.nextLabel}
-            nextBackdrop={details.backdropUrl ?? details.posterUrl}
-            season={autoplay.nextSeason}
-            episode={autoplay.nextEpisode}
-            onPlayNext={() => {
-              const target = autoplay;
-              setAutoplay(null);
-              goToEpisode(target.nextSeason, target.nextEpisode);
-            }}
-            onCancel={() => setAutoplay(null)}
-          />
-        ) : null}
-
-        {/* Initial-load pill (only when we have NO sources at all yet). */}
-        {activeSources.length === 0 && (
-          <div className="pointer-events-none fixed left-1/2 top-20 z-40 -translate-x-1/2 rounded-full border border-border bg-bg-deepest/85 px-3 py-1.5 text-xs text-cream shadow-elevated backdrop-blur">
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-bright" />
-              Loading…
-            </span>
-          </div>
-        )}
-
-        {/* Tiny inline pill during episode switch (sources are still
-            playing, just a soft indicator). */}
-        {isSwitching && (
-          <div
-            className={cn(
-              "pointer-events-none fixed left-1/2 top-20 z-40 -translate-x-1/2 rounded-full border border-border bg-bg-deepest/85 px-3 py-1.5 text-xs text-cream shadow-elevated backdrop-blur transition-opacity",
-              activeSources.length > 0 ? "opacity-100" : "opacity-0"
-            )}
-          >
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-bright" />
-              Loading S{season} · E{episode}…
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
+      ) : null}
+      <WatchTVClient />
+    </>
   );
 }
-
-function clamp(n: number, min: number, max: number): number {
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
-
-// Type-only re-exports so the local `useState` defaults above type-check.
-type sourcesType = Parameters<typeof WatchSession>[0]["sources"];
-type captionsType = Parameters<typeof WatchSession>[0]["captions"];

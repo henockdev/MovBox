@@ -14,7 +14,9 @@ import {
   PREROLL_FETCH_TIMEOUT_MS,
   PREROLL_MAX_S,
   PREROLL_SESSION_KEY,
+  PREROLL_STALL_S,
   PREROLL_TRIGGER_EVENT,
+  PREROLL_WATCHDOG_MS,
   adsEnabled,
 } from "@/lib/ads/config";
 
@@ -80,6 +82,22 @@ export function VideoPreroll({ contentRef }: VideoPrerollProps) {
    */
   const disabledRef = useRef(false);
 
+  /**
+   * Mirror of `status` for code that has to read the current value without
+   * re-subscribing to the trigger event.
+   *
+   * The fetch effect below owns an AbortController, so it must not re-run
+   * while its fetch is in flight — see the long note on that effect. This
+   * ref is how that effect reads the status without depending on it.
+   */
+  const statusRef = useRef<Status>("waiting");
+
+  /** Set state and keep the ref in sync, in one place. */
+  const setStatusSafe = useCallback((next: Status) => {
+    statusRef.current = next;
+    setStatus(next);
+  }, []);
+
   /** Idempotent hand-back to the content. */
   const finish = useCallback(() => {
     if (completedRef.current) return;
@@ -95,8 +113,8 @@ export function VideoPreroll({ contentRef }: VideoPrerollProps) {
       }
     }
 
-    setStatus("done");
-  }, [contentRef]);
+    setStatusSafe("done");
+  }, [contentRef, setStatusSafe]);
 
   // Resolve eligibility once on mount, before any network work.
   useEffect(() => {
@@ -115,15 +133,32 @@ export function VideoPreroll({ contentRef }: VideoPrerollProps) {
   }, []);
 
   // Subscribe to play intent, then fetch and play the creative.
+  //
+  // `status` IS DELIBERATELY NOT A DEPENDENCY OF THIS EFFECT.
+  //
+  // This effect owns the AbortController for the VAST fetch. If it re-ran
+  // while that fetch was in flight, its cleanup would abort the fetch. The
+  // obvious way to make it re-run is to list `status` here — but `begin()`
+  // sets the status to "loading" *while the fetch is in flight*, so the
+  // cleanup would abort the very request it had just started. The catch
+  // handler would then see `cancelled === true` and return WITHOUT calling
+  // finish(), and the overlay would sit on "Loading ad…" forever with the
+  // movie paused behind it. Because the overlay covers the player, the
+  // viewer could never press play at all.
+  //
+  // So this effect runs once per mount and owns the whole lifecycle. It
+  // reads the current status through `statusRef` when it needs to.
   useEffect(() => {
-    if (status === "done" || disabledRef.current) return;
+    if (disabledRef.current) return;
 
     let cancelled = false;
     let timer = 0;
+    let watchdog = 0;
     const controller = new AbortController();
 
     async function begin() {
       if (startedRef.current || disabledRef.current) return;
+      if (statusRef.current === "done") return;
       startedRef.current = true;
       window.removeEventListener(PREROLL_TRIGGER_EVENT, begin);
 
@@ -132,17 +167,33 @@ export function VideoPreroll({ contentRef }: VideoPrerollProps) {
       const content = contentRef.current;
       if (content && !content.paused) content.pause();
 
-      setStatus("loading");
+      setStatusSafe("loading");
       timer = window.setTimeout(
         () => controller.abort(),
         PREROLL_FETCH_TIMEOUT_MS,
       );
+      // Watchdog. Whatever happens to the fetch — abort, network error,
+      // CORS refusal, a VAST document we cannot parse — the content is
+      // released within PREROLL_WATCHDOG_MS. The pre-roll must never be
+      // able to hold the content hostage.
+      watchdog = window.setTimeout(() => {
+        if (statusRef.current !== "playing" && statusRef.current !== "done") {
+          finish();
+        }
+      }, PREROLL_WATCHDOG_MS);
 
       try {
+        // NOTE ON CREDENTIALS
+        // The VAST endpoint answers with `Access-Control-Allow-Origin: *`.
+        // A credentialed cross-origin request (credentials: "include") is
+        // rejected by the browser against a wildcard origin, so the
+        // response would never be readable and the ad could never render
+        // at all. The endpoint sets no cookie of its own (verified against
+        // the live tag: no Set-Cookie on the response), so there is no
+        // server-side cookie to round-trip; the frequency cap that
+        // matters is ours, and PREROLL_SESSION_KEY enforces it.
         const res = await fetch(HILLTOP.vast.tagUrl, {
-          // The network's capping cookie has to round-trip for its server-side
-          // frequency cap to apply at all.
-          credentials: "include",
+          credentials: "omit",
           cache: "no-store",
           signal: controller.signal,
         });
@@ -182,11 +233,17 @@ export function VideoPreroll({ contentRef }: VideoPrerollProps) {
         }
 
         if (cancelled) return;
+        // The creative is about to play, so the "never started" watchdog
+        // has done its job.
+        if (watchdog) {
+          window.clearTimeout(watchdog);
+          watchdog = 0;
+        }
         // Reset the skip counter here, in the event handler that started the
         // creative — not inside the effect that reads it. Setting it in the
         // effect body would be a cascading render.
         setElapsed(0);
-        setStatus("playing");
+        setStatusSafe("playing");
 
         requestAnimationFrame(() => {
           const v = videoRef.current;
@@ -218,21 +275,37 @@ export function VideoPreroll({ contentRef }: VideoPrerollProps) {
       cancelled = true;
       controller.abort();
       if (timer) window.clearTimeout(timer);
+      if (watchdog) window.clearTimeout(watchdog);
     };
-  }, [status, contentRef, finish]);
+  }, [contentRef, finish, setStatusSafe]);
 
   // Wall-clock skip counter. Deliberately NOT media-time: if the creative
   // stalls or buffers, the viewer must still become able to skip.
+  //
+  // This is also where a DEAD creative is detected. The ad's <video> may
+  // load its src and then never produce a frame — blocked by a hotlink
+  // guard, refused by the decoder, or the browser refusing to decode it.
+  // In that case the overlay would show a black "Ad" box until the absolute
+  // ceiling fires. If the creative has not advanced its playhead at all
+  // within PREROLL_STALL_S, we hand the content back instead.
   useEffect(() => {
     if (status !== "playing") return;
     const start = Date.now();
+    let progressed = false;
     const t = window.setInterval(() => {
       const e = (Date.now() - start) / 1000;
       setElapsed(e);
+      const v = videoRef.current;
+      if (!progressed && v && v.currentTime > 0) progressed = true;
+      if (!progressed && e >= PREROLL_STALL_S) {
+        window.clearInterval(t);
+        finish();
+        return;
+      }
       if (e >= skipAfterS) window.clearInterval(t);
     }, 200);
     return () => window.clearInterval(t);
-  }, [status, skipAfterS]);
+  }, [status, skipAfterS, finish]);
 
   // Absolute ceiling. If the creative is longer than PREROLL_MAX_S we hand
   // back regardless — a third party's creative length is not something the

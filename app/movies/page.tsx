@@ -5,14 +5,16 @@ import {
 } from "@/lib/data";
 import { BrowseClient } from "@/components/browse/BrowseClient";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { pageSeo } from "@/lib/seo";
 
-export const revalidate = 300; // 5 min Ã¢â‚¬â€ filter pages re-fetch on change anyway
+export const revalidate = 300; // 5 min — filter pages re-fetch on change anyway
 
-export const metadata: Metadata = {
-  title: "Movies Ã¢â‚¬â€ Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/movies",
+  title: "Movies",
   description:
-    "Browse movies by genre, country, year and language. Powered by boxmovies.org.",
-};
+    "Browse movies by genre, country, year and language. Stream thousands of movies free on Movbox.",
+});
 
 export default async function MoviesPage() {
   // Fetch the first page + filter options in parallel on the server so the
@@ -51,7 +53,7 @@ export default async function MoviesPage() {
             Movies
           </h1>
           <p className="mt-1 text-xs text-text-secondary sm:text-sm md:text-base">
-            Hollywood, Nollywood, Bollywood, K-Drama & more Ã¢â‚¬â€ updated daily.
+            Hollywood, Nollywood, Bollywood, K-Drama & more — updated daily.
           </p>
         </header>
       </div>

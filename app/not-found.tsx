@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Home, Search, Compass } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { pageSeo } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageSeo({
+  path: "/404",
   title: "404 — Page Not Found",
   description: "The page you're looking for doesn't exist.",
-};
+  noindex: true,
+});
 
 export default function NotFound() {
   return (

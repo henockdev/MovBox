@@ -5,14 +5,16 @@ import {
 } from "@/lib/data";
 import { BrowseClient } from "@/components/browse/BrowseClient";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { pageSeo } from "@/lib/seo";
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: "TV Shows Ã¢â‚¬â€ Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/tv",
+  title: "TV Shows",
   description:
-    "Browse TV series by genre, country, year and language. Powered by boxmovies.org.",
-};
+    "Browse TV series by genre, country, year and language. Stream full episodes free on Movbox.",
+});
 
 export default async function TVPage() {
   const [browse, options] = await Promise.all([
@@ -49,7 +51,7 @@ export default async function TVPage() {
             TV Shows
           </h1>
           <p className="mt-1 text-xs text-text-secondary sm:text-sm md:text-base">
-            K-Drama, anime, sitcoms, reality TV & more Ã¢â‚¬â€ updated daily.
+            K-Drama, anime, sitcoms, reality TV & more — updated daily.
           </p>
         </header>
       </div>

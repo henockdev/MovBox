@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * BrowseClient â€” shared client component for /movies, /tv, /animations.
+ * BrowseClient — shared client component for /movies, /tv, /animations.
  * Owns the filter state, calls /api/browse on every change, and renders
  * the <FilterSidebar> + <BrowseGrid> combo in a 2-col grid on desktop.
  * On mobile, the filter sidebar collapses behind a button (handled

@@ -5,6 +5,7 @@ import { MediaGrid } from "@/components/media/MediaGrid";
 import { discoverMovies, discoverTV, getMovieGenres, getTVGenres } from "@/lib/tmdb";
 import { toMovieCard, toTVCard } from "@/lib/media";
 import { MOVIE_GENRES } from "@/lib/constants";
+import { pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -23,12 +24,19 @@ export async function generateMetadata({
   ]);
   const all = [...movieGenres.genres, ...tvGenres.genres];
   const found = all.find((g) => String(g.id) === id);
-  return {
-    title: found ? `${found.name} — Movbox` : "Genre — Movbox",
-    description: found
-      ? `Browse ${found.name} movies and TV shows.`
-      : "Browse by genre.",
-  };
+  if (!found) {
+    return pageSeo({
+      path: `/genres/${encodeURIComponent(id)}`,
+      title: "Genre",
+      description: "Browse by genre.",
+      noindex: true,
+    });
+  }
+  return pageSeo({
+    path: `/genres/${encodeURIComponent(String(found.id))}`,
+    title: found.name,
+    description: `Browse ${found.name} movies and TV shows. Stream them free on Movbox.`,
+  });
 }
 
 export default async function GenrePage({

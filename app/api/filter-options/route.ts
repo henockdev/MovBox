@@ -8,7 +8,7 @@ import { getBoxmoviesFilterOptions, type ChannelId } from "@/lib/data";
  * (genre / country / year / language / sort). Frontend uses this to
  * render the filter sidebar on /movies, /tv, /animations.
  *
- * Cached aggressively â€” these values rarely change.
+ * Cached aggressively — these values rarely change.
  */
 
 export const dynamic = "force-dynamic";

@@ -165,3 +165,24 @@ export const PREROLL_DEFAULT_SKIP_S = 5;
 
 /** Absolute budget for the whole pre-roll: fetch + parse + first frame. */
 export const PREROLL_FETCH_TIMEOUT_MS = 3000;
+
+/**
+ * Hard watchdog for the whole pre-roll, in milliseconds.
+ *
+ * Measured from the moment the viewer signals play intent. If the creative
+ * has not reached the "playing" state by then, the ad is not going to
+ * happen and the content is released immediately.
+ *
+ * This is the guarantee that a third party's ad server can never hold a
+ * viewer hostage: the pre-roll overlay covers the player, so a pre-roll
+ * that does not terminate means the viewer cannot start the movie at all.
+ */
+export const PREROLL_WATCHDOG_MS = 10_000;
+
+/**
+ * If the creative is playing but has not produced a single frame this many
+ * seconds after it started, it is dead — stalled, blocked by a hotlink
+ * guard, or refused by the browser's decoder. Release the content instead
+ * of showing a black "Ad" overlay until the absolute ceiling.
+ */
+export const PREROLL_STALL_S = 6;

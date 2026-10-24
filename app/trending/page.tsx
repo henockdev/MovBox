@@ -3,14 +3,16 @@ import { Flame } from "lucide-react";
 import { TrendingRow } from "@/components/home/TrendingRow";
 import { getBoxmoviesTrending } from "@/lib/data";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { pageSeo } from "@/lib/seo";
 import type { MediaCard } from "@/lib/types";
 
 export const revalidate = 1800; // 30 min
 
-export const metadata: Metadata = {
-  title: "Trending Ã¢â‚¬â€ Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/trending",
+  title: "Trending",
   description: "What's hot on Movbox right now.",
-};
+});
 
 function toMediaCard(c: {
   detailPath: string;

@@ -1,25 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBoxmoviesStream } from "@/lib/data";
-import type { BoxSource, BoxSourceGroup } from "@/lib/types";
+import { getBoxmoviesDetail, getBoxmoviesStream } from "@/lib/data";
+import { onStreamConfigured } from "@/lib/onstream/gateway";
+import { resolveEpisode } from "@/lib/onstream/client";
+import type { BoxCaption, BoxSource, BoxSourceGroup } from "@/lib/types";
 
 /**
  * GET /api/sources?detailPath=...&season=N&episode=N
  *
- * The Next.js app does NOT proxy video/subtitle bytes itself anymore.
- * Everything goes through the thin relay (the same relay the Android
- * app uses):
+ * ---------------------------------------------------------------------------
+ * Where the sources come from
+ * ---------------------------------------------------------------------------
+ * Two backends, one response shape:
  *
- *   - source list + captions  â†’  thin relay /stream
- *   - MP4 bytes               â†’  thin relay /mp4?url=...
- *   - subtitle bytes          â†’  thin relay /subtitle?url=...
+ *   1. OnStream (aoneroom mobile BFF) — PRIMARY.
+ *      Resolved by this Next.js process: session bootstrap → resolution sweep
+ *      → sniff/config → a real signed media URL on bcdn.hakunaymatata.com,
+ *      plus the episode's subtitle tracks. The URL we hand back is a RAW
+ *      upstream URL, which the player wraps in /api/video-proxy — so the
+ *      media bytes are streamed by our own proxy and the separately hosted
+ *      relay is not involved at all.
  *
- * The relay injects the upstream Bearer auth and the right Referer/
- * Origin headers so the browser can play videos and render subtitles
- * directly (same-origin to the relay, CORS-allowed).
+ *   2. The thin relay — FALLBACK.
+ *      Used when OnStream is not configured (no gateway key) or when the
+ *      subject has no OnStream resource. Unchanged behaviour: the relay's
+ *      own /mp4 and /subtitle URLs are handed to the player as-is.
  *
- * The shape returned here is unchanged from the old boxmovies-api
- * shape so the player code doesn't need to know which backend is in
- * use.
+ * The relay is the safety net, not the primary path. Every OnStream failure
+ * is logged and falls through to it.
+ *
+ * ---------------------------------------------------------------------------
+ * The shape returned here is unchanged from the old boxmovies-api shape so
+ * the player code does not need to know which backend answered.
+ * ---------------------------------------------------------------------------
  */
 
 export const dynamic = "force-dynamic";
@@ -41,6 +53,34 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
   }
 }
 
+/**
+ * Subtitle URLs need different treatment per backend.
+ *
+ * A relay /subtitle URL is already WebVTT served by the relay — pass it
+ * through untouched. A RAW upstream caption URL (the OnStream path) has to go
+ * through our own proxy: the CDN demands a Referer the browser cannot set,
+ * and a browser <track> only understands text/vtt, which our proxy
+ * guarantees by converting SRT on the way out.
+ */
+function toPlayerSubtitleUrl(upstreamOrRelayUrl: string): string {
+  if (!upstreamOrRelayUrl) return upstreamOrRelayUrl;
+  if (upstreamOrRelayUrl.startsWith("/api/subtitle-proxy")) {
+    return upstreamOrRelayUrl;
+  }
+  try {
+    const u = new URL(upstreamOrRelayUrl, "http://relay.invalid");
+    if (u.pathname.endsWith("/subtitle")) return upstreamOrRelayUrl;
+  } catch {
+    /* unparseable -> fall through to the legacy proxy */
+  }
+  return `/api/subtitle-proxy?url=${encodeURIComponent(upstreamOrRelayUrl)}`;
+}
+
+type Provider = { id: "boxmovies" | "onstream"; name: string };
+
+const ONSTREAM_PROVIDER: Provider = { id: "onstream", name: "OnStream" };
+const RELAY_PROVIDER: Provider = { id: "boxmovies", name: "BoxMovies" };
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const detailPath = searchParams.get("detailPath");
@@ -49,47 +89,125 @@ export async function GET(req: NextRequest) {
   const subjectId = searchParams.get("subjectId") ?? "";
 
   if (!detailPath) {
-    return NextResponse.json(
-      { error: "Missing detailPath" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing detailPath" }, { status: 400 });
   }
 
+  // -------------------------------------------------------------------------
+  // Primary path: OnStream
+  // -------------------------------------------------------------------------
+  if (onStreamConfigured()) {
+    try {
+      let sid = subjectId;
+      if (!sid) {
+        const detail = await getBoxmoviesDetail(detailPath);
+        if (detail) {
+          const alt = (detail as { id?: string | number }).id;
+          sid = String(detail.subjectId || alt || "");
+        }
+      }
+
+      if (sid) {
+        const resolved = await withTimeout(
+          resolveEpisode(sid, season, episode),
+          TIMEOUT_MS,
+          `onstream ${detailPath}`,
+        );
+
+        if (resolved && resolved.rungs.length) {
+          const captions: BoxCaption[] = resolved.captions.map((c) => ({
+            id: c.id,
+            url: c.url,
+            languageCode: c.languageCode,
+            language: c.language,
+            delay: c.delay,
+            sizeBytes: c.sizeBytes,
+          }));
+
+          const sources: BoxSource[] = resolved.rungs.map((r) => ({
+            id: `${r.resolution}-${r.url.slice(-12)}`,
+            // RAW upstream URL on purpose. The player's buildPlayableUrl()
+            // wraps anything that is not already a relay /mp4 URL in
+            // /api/video-proxy, so the bytes are streamed by our own
+            // proxy — with no Referer, which is what this CDN demands.
+            url: r.url,
+            type: "mp4" as const,
+            quality: r.quality,
+            resolution: r.resolution,
+            sizeBytes: r.sizeBytes,
+            durationSeconds: r.durationSeconds,
+            format: r.format,
+            codec: r.codec,
+            vipLocked: false,
+            subtitles: captions.map((c) => ({
+              id: c.id,
+              url: toPlayerSubtitleUrl(c.url),
+              languageCode: c.languageCode,
+              language: c.language,
+              delay: c.delay,
+              sizeBytes: c.sizeBytes,
+            })),
+            provider: ONSTREAM_PROVIDER,
+          }));
+
+          const payload: BoxSourceGroup & {
+            ok: boolean;
+            provider: Provider;
+            subtitleTracks: {
+              id: string;
+              url: string;
+              language: string;
+              label: string;
+            }[];
+          } = {
+            ok: true,
+            detailPath,
+            season,
+            episode,
+            subjectId: sid,
+            hasResource: true,
+            isLimited: false,
+            vipLocked: false,
+            freeStreamsRemaining: undefined,
+            sources,
+            captions,
+            subtitleTracks: captions.map((c) => ({
+              id: c.id,
+              url: toPlayerSubtitleUrl(c.url),
+              language: c.languageCode,
+              label: c.language,
+            })),
+            count: sources.length,
+            provider: ONSTREAM_PROVIDER,
+          };
+
+          return NextResponse.json(payload, {
+            headers: {
+              // The media URLs are signed and short-lived, so the resolved
+              // ladder must not be cached for long.
+              "Cache-Control": "public, max-age=60, s-maxage=120",
+            },
+          });
+        }
+        console.warn(
+          `[api/sources] onstream had no resource for ${detailPath} s${season}e${episode}; using the relay`,
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.warn(`[api/sources] onstream ${detailPath} failed: ${message}`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Fallback path: the thin relay
+  // -------------------------------------------------------------------------
   try {
     const data = await withTimeout(
       getBoxmoviesStream(detailPath, season, episode, subjectId),
       TIMEOUT_MS,
-      `stream ${detailPath}`
+      `stream ${detailPath}`,
     );
 
-    // Subtitle URLs come back from the relay already pointing at the
-    // relay's own /subtitle endpoint, and the relay serves them as
-    // WebVTT (it converts SRT -> VTT itself). So a relay caption URL is
-    // passed through untouched. Re-proxying it through Next.js would push
-    // the subtitle bytes through Vercel for no reason at all.
-    //
-    // A RAW upstream caption URL (legacy / older API responses) still
-    // needs the Next.js proxy: the CDN demands a Referer the browser
-    // cannot set, and a browser <track> only understands text/vtt.
-    const toPlayerSubtitleUrl = (upstreamOrRelayUrl: string) => {
-      if (!upstreamOrRelayUrl) return upstreamOrRelayUrl;
-      // Already a Next.js proxy URL - leave it.
-      if (upstreamOrRelayUrl.startsWith("/api/subtitle-proxy")) {
-        return upstreamOrRelayUrl;
-      }
-      // Already a relay /subtitle URL - leave it.
-      try {
-        const u = new URL(upstreamOrRelayUrl, "http://relay.invalid");
-        if (u.pathname.endsWith("/subtitle")) return upstreamOrRelayUrl;
-      } catch {
-        /* unparseable -> fall through to the legacy proxy */
-      }
-      return `/api/subtitle-proxy?url=${encodeURIComponent(upstreamOrRelayUrl)}`;
-    };
-
-    // The thin relay already returns MP4 URLs proxied through its own
-    // /mp4 endpoint. Pass them through unchanged. (Subtitles get
-    // re-routed above so the player gets WebVTT.)
     const sources: BoxSource[] = data.sources.map((s) => ({
       id: s.id,
       url: s.url,
@@ -109,11 +227,9 @@ export async function GET(req: NextRequest) {
         delay: c.delay,
         sizeBytes: c.sizeBytes,
       })),
-      provider: { id: "boxmovies" as const, name: "BoxMovies" },
+      provider: RELAY_PROVIDER,
     }));
 
-    // Player-friendly subtitle tracks list (mirrors the old boxmovies-api
-    // shape so the existing subtitle picker in the player UI keeps working).
     const subtitleTracks = data.captions.map((c) => ({
       id: c.id,
       url: toPlayerSubtitleUrl(c.url),
@@ -123,7 +239,7 @@ export async function GET(req: NextRequest) {
 
     const payload: BoxSourceGroup & {
       ok: boolean;
-      provider: { id: string; name: string };
+      provider: Provider;
       subtitleTracks: { id: string; url: string; language: string; label: string }[];
     } = {
       ok: true,
@@ -139,13 +255,11 @@ export async function GET(req: NextRequest) {
       captions: data.captions,
       subtitleTracks,
       count: sources.length,
-      provider: { id: "boxmovies", name: "BoxMovies" },
+      provider: RELAY_PROVIDER,
     };
 
     return NextResponse.json(payload, {
       headers: {
-        // Boxmovies stream URLs are proxied through the thin relay and
-        // that proxy is essentially a passthrough â€” short cache.
         "Cache-Control": "public, max-age=60, s-maxage=120",
       },
     });
@@ -163,9 +277,9 @@ export async function GET(req: NextRequest) {
         captions: [],
         subtitleTracks: [],
         count: 0,
-        provider: { id: "boxmovies", name: "BoxMovies" },
+        provider: RELAY_PROVIDER,
       },
-      { status: 504 }
+      { status: 504 },
     );
   }
 }

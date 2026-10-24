@@ -24,7 +24,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = getArticleBySlug(slug);
-  if (!article) return { title: "Article not found" };
+  if (!article) {
+    return {
+      title: "Article not found",
+      robots: { index: false, follow: false },
+    };
+  }
   return {
     title: article.title,
     description: article.description,

@@ -3,22 +3,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { ARTICLES } from "@/lib/blog/articles";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
-import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { pageSeo } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Blog — Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/blog",
+  title: "Blog",
   description:
     "News, guides, and editor's picks from the Movbox team. K-dramas, 4K streaming, the best of the catalog — all free.",
-  alternates: { canonical: `${SITE_URL}/blog` },
-  openGraph: {
-    title: "Movbox Blog",
-    description:
-      "News, guides, and editor's picks from the Movbox team. K-dramas, 4K streaming, the best of the catalog — all free.",
-    url: `${SITE_URL}/blog`,
-    siteName: SITE_NAME,
-    type: "website",
-  },
-};
+});
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {

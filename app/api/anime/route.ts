@@ -4,7 +4,7 @@ import { getBoxmoviesAnime } from "@/lib/data";
 export const revalidate = 600; // 10 min
 
 /**
- * /api/anime â€” drives boxmovies's /animated-series page via the h5-api
+ * /api/anime — drives boxmovies's /animated-series page via the h5-api
  * /home endpoint, then filters to animation/anime sections.
  *
  * Returns a flat `items` array for the browse grid + `sections` for the

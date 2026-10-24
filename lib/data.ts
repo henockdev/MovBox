@@ -592,10 +592,89 @@ export async function suggestBoxmovies(query: string): Promise<string[]> {
 // Detail
 // ---------------------------------------------------------------------------
 
+/**
+ * Decide whether a subject is a movie or a TV series.
+ *
+ * The upstream `subjectType` is NOT a clean movie/tv flag:
+ *
+ *   1 = movie
+ *   2 = tv series
+ *   7 = animation — which covers BOTH one-off animated features
+ *       ("Elemental", "Kung Fu Panda 4") AND episodic anime series
+ *       ("The Divorced Billionaire Heiress", 75 episodes)
+ *
+ * A series is only playable through the TV route: the player resolves
+ * streams by (season, episode), and an episodic title has no episode 0.
+ * Treating an anime series as a movie therefore yields a watch page that
+ * resolves zero sources — verified live against
+ * `/api/sources?detailPath=the-divorced-billionaire-heiress-…&season=0&episode=0`
+ * (count = 0) versus `season=1&episode=1` (count = 1).
+ *
+ * So for the ambiguous types we fall back to the season data: a subject
+ * whose seasons actually contain episodes is a series, everything else is
+ * a one-off feature.
+ */
+function inferSubjectKind(
+  subjectType: unknown,
+  seasons: Array<{
+    episodeCount: number;
+    resolutions: Array<{ epNum?: number }>;
+  }>
+): "movie" | "tv" | "unknown" {
+  if (subjectType === 1) return "movie";
+  if (subjectType === 2) return "tv";
+
+  const episodic = seasons.some(
+    (s) =>
+      s.episodeCount > 1 ||
+      (Array.isArray(s.resolutions) &&
+        s.resolutions.some((r) => Number(r.epNum) > 1))
+  );
+  if (episodic) return "tv";
+
+  // A single season with exactly one episode is a one-off feature.
+  if (seasons.length > 0) return "movie";
+
+  return "unknown";
+}
+
+/**
+ * Short-lived in-process cache. A single page view can ask for the same
+ * detail up to three times (generateMetadata + the page component +
+ * the JSON-LD builder), and the watch routes are dynamic, so without a
+ * cache every player open would hammer /detail. 60s is long enough to
+ * collapse those calls and short enough that new episodes appear
+ * quickly. Failures are never cached — a transient upstream blip must
+ * not keep a title broken for a minute.
+ */
+
+const DETAIL_TTL_MS = 60_000;
+const DETAIL_CACHE_MAX = 500;
+const detailCache = new Map<string, { at: number; value: BoxDetail }>();
+
 export async function getBoxmoviesDetail(
   detailPath: string
 ): Promise<BoxDetail | null> {
   const clean = cleanDetailPath(detailPath);
+  const cached = detailCache.get(clean);
+  if (cached && Date.now() - cached.at < DETAIL_TTL_MS) {
+    return cached.value;
+  }
+
+  const detail = await fetchBoxmoviesDetail(clean);
+  if (detail) {
+    if (detailCache.size >= DETAIL_CACHE_MAX) {
+      const oldest = detailCache.keys().next();
+      if (!oldest.done) detailCache.delete(oldest.value);
+    }
+    detailCache.set(clean, { at: Date.now(), value: detail });
+  }
+  return detail;
+}
+
+async function fetchBoxmoviesDetail(
+  clean: string
+): Promise<BoxDetail | null> {
   try {
     const r = await h5Fetch(`/detail?detailPath=${encodeURIComponent(clean)}`, {
       method: "GET",
@@ -696,8 +775,10 @@ export async function getBoxmoviesDetail(
         };
       })
       .filter(Boolean);
-    const kind: "movie" | "tv" | "unknown" =
-      subj.subjectType === 1 ? "movie" : subj.subjectType === 2 ? "tv" : "unknown";
+    const kind: "movie" | "tv" | "unknown" = inferSubjectKind(
+      subj.subjectType,
+      seasons
+    );
 
     return {
       detailPath: subj.detailPath || clean,
@@ -798,6 +879,39 @@ function isMovieSection(title: string): boolean {
   return MOVIE_KEYWORDS.some((k) => t.includes(k));
 }
 
+/**
+ * Stable shuffle.
+ *
+ * "More Like This" used to be shuffled with Math.random(), which made the
+ * related block change on every single render. That is bad for two reasons:
+ * a crawler sees a different set of internal links on every visit, and a
+ * visitor who clicks back to the page finds the tiles moved. Seeding the
+ * shuffle with the title's own detailPath keeps the ordering stable for a
+ * given title (and different between titles) without any randomness at
+ * render time.
+ */
+function shuffleDeterministic<T>(items: T[], seed: string): void {
+  // FNV-1a over the seed string.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  // mulberry32 — small, fast, deterministic.
+  let a = h >>> 0;
+  const next = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+}
+
 export async function getBoxmoviesRelated(
   detailPath: string,
   kind: "movie" | "tv" = "movie",
@@ -835,10 +949,7 @@ export async function getBoxmoviesRelated(
     take(explicit, 6);
     take(matching, 6);
     take(others, 4);
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
+    shuffleDeterministic(pool, detailPath);
     return pool.slice(0, limit);
   } catch {
     return [];
@@ -978,12 +1089,13 @@ export async function getBoxmoviesStream(
     };
   });
 
-  // The ladder is sorted ASCENDING: smallest resolution first, so index 0
-  // is always the rung that auto-plays. That is the fast-start rung (least
-  // bytes to the first frame) and the cheapest one for the relay to carry.
-  // Sorting here instead of trusting the upstream order means the app's
-  // contract holds no matter which backend answered.
-  sources.sort((a, b) => (a.resolution || 0) - (b.resolution || 0));
+  // The ladder is sorted DESCENDING: best rung first, so index 0 is the
+  // best quality available. The player's default is index 0 (the parent
+  // hard-codes activeSourceIndex={0}), which is why an ascending ladder
+  // made the site auto-play 360p even though the upstream was serving
+  // 1080p all along. Sorting here instead of trusting the upstream order
+  // means the app's contract holds no matter which backend answered.
+  sources.sort((a, b) => (b.resolution || 0) - (a.resolution || 0));
 
   const captions: BoxCaption[] = rawCaptions.map((c: any) => ({
     id: c.id,

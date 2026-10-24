@@ -1,8 +1,8 @@
 /**
- * Watchlist storage â€” localStorage based, no auth required.
+ * Watchlist storage — localStorage based, no auth required.
  * Each entry: { id, type, title, posterPath, addedAt }
  * SSR-safe: every accessor checks `typeof window`.
- * Migrated from `hmovies:watchlist` to `movbox:watchlist` â€” we read
+ * Migrated from `hmovies:watchlist` to `movbox:watchlist` — we read
  * the legacy key for backwards compatibility, then re-save under the
  * new key on the next write.
  */
@@ -70,7 +70,7 @@ function write(entries: WatchlistEntry[]) {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(entries));
   } catch {
-    /* quota / disabled storage â€” silently no-op */
+    /* quota / disabled storage — silently no-op */
   }
 }
 

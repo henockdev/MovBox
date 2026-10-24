@@ -6,7 +6,7 @@ import { getBoxmoviesBrowse, type ChannelId } from "@/lib/data";
  *
  * Filterable list endpoint. Drives the /movies, /tv, /animations pages.
  * Wraps boxmovies-api /browse which in turn drives h5-api.aoneroom.com
- * /wefeed-h5api-bff/subject/filter â€” the same endpoint boxmovies.org uses.
+ * /wefeed-h5api-bff/subject/filter — the same endpoint boxmovies.org uses.
  *
  * All filter values are "All" or empty to skip a filter. sort defaults
  * to "ForYou" (the boxmovies "recommended for you" order).

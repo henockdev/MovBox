@@ -3,13 +3,15 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { getMovieGenres, getTVGenres } from "@/lib/tmdb";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "Genres — Movbox",
+export const metadata: Metadata = pageSeo({
+  path: "/genres",
+  title: "Genres",
   description: "Browse movies and TV shows by genre.",
-};
+});
 
 export default async function GenresPage() {
   const [movieGenres, tvGenres] = await Promise.all([
