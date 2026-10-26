@@ -31,6 +31,11 @@ import type { BoxCaption, BoxSource, BoxSourceGroup } from "@/lib/types";
  * ---------------------------------------------------------------------------
  * The shape returned here is unchanged from the old boxmovies-api shape so
  * the player code does not need to know which backend answered.
+ *
+ * The one addition is the `onstream` diagnostic object: it states whether the
+ * gateway key was present in this runtime, whether OnStream answered, and if
+ * not, why the relay was used. Without it a misconfigured deployment looks
+ * exactly like a healthy one.
  * ---------------------------------------------------------------------------
  */
 
@@ -81,6 +86,42 @@ type Provider = { id: "boxmovies" | "onstream"; name: string };
 const ONSTREAM_PROVIDER: Provider = { id: "onstream", name: "OnStream" };
 const RELAY_PROVIDER: Provider = { id: "boxmovies", name: "BoxMovies" };
 
+/**
+ * Why the primary path did or did not answer.
+ *
+ * The relay fallback is deliberately silent — that is what makes it a safe
+ * safety net. But a silent fallback is also how a misconfigured deployment
+ * looks perfectly healthy while running on the old path forever, so every
+ * response states which backend answered and, when the fallback was taken,
+ * why.
+ *
+ * `reason` is one of:
+ *   "served"          — OnStream answered.
+ *   "not-configured"  — no gateway key in this runtime.
+ *   "no-subject-id"   — the catalogue entry could not be resolved.
+ *   "no-resource"     — the upstream has no stream for this episode.
+ *   "error: ..."      — the OnStream attempt threw.
+ */
+interface OnStreamDiagnostic {
+  /** Is the gateway key material present in this runtime? */
+  configured: boolean;
+  /** Did OnStream answer this request? */
+  active: boolean;
+  /** Why it did not, when it did not. */
+  reason: string;
+}
+
+/**
+ * Strip anything credential-shaped out of an error message before it is
+ * published, and keep it short. Upstream failures can quote the request URL,
+ * which carries a signed token.
+ */
+function sanitizeReason(message: string): string {
+  return message
+    .replace(/\b(sign|token|secret|key|authorization)\s*[=:]\s*[^\s&"']*/gi, "$1=[redacted]")
+    .slice(0, 200);
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const detailPath = searchParams.get("detailPath");
@@ -95,7 +136,13 @@ export async function GET(req: NextRequest) {
   // -------------------------------------------------------------------------
   // Primary path: OnStream
   // -------------------------------------------------------------------------
-  if (onStreamConfigured()) {
+  const onstream: OnStreamDiagnostic = {
+    configured: onStreamConfigured(),
+    active: false,
+    reason: onStreamConfigured() ? "" : "not-configured",
+  };
+
+  if (onstream.configured) {
     try {
       let sid = subjectId;
       if (!sid) {
@@ -152,6 +199,7 @@ export async function GET(req: NextRequest) {
           const payload: BoxSourceGroup & {
             ok: boolean;
             provider: Provider;
+            onstream: OnStreamDiagnostic;
             subtitleTracks: {
               id: string;
               url: string;
@@ -178,6 +226,7 @@ export async function GET(req: NextRequest) {
             })),
             count: sources.length,
             provider: ONSTREAM_PROVIDER,
+            onstream: { configured: true, active: true, reason: "served" },
           };
 
           return NextResponse.json(payload, {
@@ -188,12 +237,16 @@ export async function GET(req: NextRequest) {
             },
           });
         }
+        onstream.reason = "no-resource";
         console.warn(
           `[api/sources] onstream had no resource for ${detailPath} s${season}e${episode}; using the relay`,
         );
+      } else {
+        onstream.reason = "no-subject-id";
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
+      onstream.reason = `error: ${sanitizeReason(message)}`;
       console.warn(`[api/sources] onstream ${detailPath} failed: ${message}`);
     }
   }
@@ -240,6 +293,7 @@ export async function GET(req: NextRequest) {
     const payload: BoxSourceGroup & {
       ok: boolean;
       provider: Provider;
+      onstream: OnStreamDiagnostic;
       subtitleTracks: { id: string; url: string; language: string; label: string }[];
     } = {
       ok: true,
@@ -256,11 +310,14 @@ export async function GET(req: NextRequest) {
       subtitleTracks,
       count: sources.length,
       provider: RELAY_PROVIDER,
+      onstream,
     };
 
     return NextResponse.json(payload, {
       headers: {
-        "Cache-Control": "public, max-age=60, s-maxage=120",
+        // While the relay is answering, the diagnostic is the interesting
+        // part of this response, so it must not be served from a cache.
+        "Cache-Control": "no-store",
       },
     });
   } catch (err) {
@@ -278,6 +335,7 @@ export async function GET(req: NextRequest) {
         subtitleTracks: [],
         count: 0,
         provider: RELAY_PROVIDER,
+        onstream,
       },
       { status: 504 },
     );
