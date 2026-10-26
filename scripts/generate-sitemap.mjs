@@ -45,12 +45,16 @@ const SITE_HOST = "https://boxmovies.org";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-// How many catalogue pages (50 items each) to pull per channel. 3 pages
-// per channel = up to 450 titles. Every title needs one /detail call to
+// How many catalogue pages (50 items each) to pull per channel. 4 pages
+// per channel = up to 600 titles. Every title needs one /detail call to
 // learn its kind, real lastmod and episode count, so this is the knob that
 // trades build time against catalogue coverage. Raise it with
 // SITEMAP_PAGES_PER_CHANNEL when a bigger catalogue is worth a longer build.
-const PAGES_PER_CHANNEL = Number(process.env.SITEMAP_PAGES_PER_CHANNEL || 3);
+//
+// NOTE: the value committed to public/sitemap.xml is produced by this same
+// default at build time (the prebuild script runs before every Vercel build),
+// so the file in the repo and the file that gets served stay in sync.
+const PAGES_PER_CHANNEL = Number(process.env.SITEMAP_PAGES_PER_CHANNEL || 4);
 // Parallel /detail calls. The upstream rate-limits with HTTP 429 above
 // roughly two concurrent /detail calls, so keep this low.
 const DETAIL_CONCURRENCY = Number(process.env.SITEMAP_DETAIL_CONCURRENCY || 2);
