@@ -264,7 +264,14 @@ export async function bootstrapSession(): Promise<string | null> {
     null,
   );
   if (!res.ok) {
-    throw new OnStreamError(`onstream bootstrap -> HTTP ${res.status}`, res.status);
+    // The body matters: the gateway explains itself there ("invalid client
+    // build", "ip not allowed", ...). Dropping it turns a diagnosable
+    // rejection into a bare status code.
+    const body = await res.text().catch(() => "");
+    throw new OnStreamError(
+      `onstream bootstrap -> HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`,
+      res.status,
+    );
   }
   const xUser = res.headers.get("x-user");
   if (!xUser) throw new OnStreamError("onstream bootstrap: no x-user header");
