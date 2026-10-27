@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
+import { HeroSlideStrip } from "@/components/home/HeroSlideStrip";
 import { MovieRow } from "@/components/home/MovieRow";
 import { PromoBanner } from "@/components/home/PromoBanner";
 import { FeatureFooter } from "@/components/home/FeatureFooter";
@@ -93,6 +94,14 @@ export default async function HomePage() {
     <div className="bg-bg-deepest">
       {/* Hero */}
       <HeroCarousel items={hero} />
+
+      {/* The compact scrollable strip of hero titles, directly under the
+          banner — the original app renders the same slides a second time
+          here as thin cards, and it is the app's main horizontal-scroll
+          gesture on a phone. */}
+      <div className="pt-3 sm:pt-4">
+        <HeroSlideStrip items={hero} />
+      </div>
 
       {/* Continue Watching — only shows if the user has history.
           Reads from localStorage; SSR returns nothing (avoids

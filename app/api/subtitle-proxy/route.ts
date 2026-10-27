@@ -24,9 +24,6 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** The caption CDN sits in eu-central-1, next to the media CDN. */
-export const preferredRegion = "fra1";
-
 const ALLOWED_HOSTS = new Set([
   "bcdnxw.hakunaymatata.com",
   "cacdn.hakunaymatata.com",

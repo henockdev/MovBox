@@ -40,13 +40,6 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/**
- * The media CDN (bcdn.hakunaymatata.com) is an Alibaba NLB in eu-central-1,
- * so the proxy runs in Frankfurt. The OnStream resolver in /api/sources is
- * pinned to a different region because that gateway refuses fra1 traffic.
- */
-export const preferredRegion = "fra1";
-
 const ALLOWED_HOSTS = new Set([
   "bcdn.hakunaymatata.com",
   "bcdnxw.hakunaymatata.com",
