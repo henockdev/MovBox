@@ -3,7 +3,7 @@
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
   "framework": "nextjs",
-  "regions": ["fra1"],
+  "regions": ["sin1", "fra1"],
   "headers": [
     {
       "source": "/(.*)",
