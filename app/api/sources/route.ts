@@ -42,6 +42,22 @@ import type { BoxCaption, BoxSource, BoxSourceGroup } from "@/lib/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+/**
+ * Where this function runs.
+ *
+ * The OnStream gateway (api6.aoneroom.com) is an Alibaba NLB in
+ * eu-central-1. Requests that originate from Vercel's Frankfurt region are
+ * refused by it with `{"code":440,"message":"ServiceNotAvailable"}` — the
+ * gateway answers, but it will not serve that source. The same request from
+ * another source is answered normally, and the media CDN (bcdn) is also in
+ * eu-central-1.
+ *
+ * So the project stays in fra1 (that is where the media proxy is closest to
+ * the CDN) and only this route — the one that talks to the gateway — is
+ * pinned to a different region.
+ */
+export const preferredRegion = "sin1";
+
 const TIMEOUT_MS = 25_000;
 
 async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
