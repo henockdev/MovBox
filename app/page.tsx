@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { HeroSlideStrip } from "@/components/home/HeroSlideStrip";
+import { CategoryChips } from "@/components/home/CategoryChips";
 import { MovieRow } from "@/components/home/MovieRow";
 import { PromoBanner } from "@/components/home/PromoBanner";
 import { FeatureFooter } from "@/components/home/FeatureFooter";
 import { ContinueWatchingRow } from "@/components/home/ContinueWatchingRow";
 import { getBoxmoviesHome } from "@/lib/data";
+import { toMediaCard } from "@/lib/cards";
 import { pageSeo } from "@/lib/seo";
 import type { MediaCard, BoxMediaCard } from "@/lib/types";
 
@@ -28,19 +30,6 @@ export const metadata: Metadata = pageSeo({
   imageHeight: 630,
   absoluteTitle: true,
 });
-
-function toMediaCard(c: BoxMediaCard): MediaCard {
-  return {
-    id: c.detailPath,
-    type: c.type,
-    title: c.title,
-    year: c.year?.toString() ?? "",
-    rating: c.rating ?? 0,
-    posterPath: c.posterUrl,
-    backdropPath: c.backdropUrl,
-    overview: c.overview,
-  };
-}
 
 // Boxmovies' home page has a few "tab" carousels at the top (Home, TV show,
 // Movie, Animation, Novel, Most Watched, Boxmovies App, FM Download, Games)
@@ -101,6 +90,11 @@ export default async function HomePage() {
           gesture on a phone. */}
       <div className="pt-3 sm:pt-4">
         <HeroSlideStrip items={hero} />
+      </div>
+
+      {/* The shelves the app has and the site did not. */}
+      <div className="pt-4 sm:pt-5">
+        <CategoryChips />
       </div>
 
       {/* Continue Watching — only shows if the user has history.

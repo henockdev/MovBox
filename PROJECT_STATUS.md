@@ -190,13 +190,30 @@ Playback still works — it falls back to the relay.
 
 ### 6.3 Hypotheses still open
 
-1. **Source-IP/ASN policy** on the gateway. Mitigation under test: the
-   `/api/sources` route is pinned to `preferredRegion = "sin1"` while the
-   project stays in `fra1` (so the media proxy stays next to bcdn).
-   Commit `36e8de4`. **Result not yet known.**
+1. **Source-IP / ASN / market policy** on the gateway. The region lever was
+   tested and **is not available**:
+   - Next.js 16 **deprecated `preferredRegion`** in route handlers
+     (`nextjs.org/docs/messages/preferred-region-deprecated`) — the export is
+     a no-op and the build warns.
+   - Vercel **Hobby allows one region only**. A two-region
+     `vercel.json` was pushed and the deployment was rejected with
+     `vercel.link/multiple-function-regions` (visible in the GitHub commit
+     status: `Vercel | failure | Deployment failed.`).
+   - So the only remaining region lever is a whole-project move (e.g.
+     `regions: ["sin1"]`), which would also move the media proxy away from
+     the CDN. Not done — it trades a known-good layout for an unknown.
 2. **Client-identity / TLS-fingerprint** policy.
 3. **Per-source rate limiting** — Vercel's fra1 IP range is shared by many
    tenants and may be throttled to "ServiceNotAvailable".
+
+### 6.3a How to check the state quickly
+
+```
+https://movbox.xyz/api/sources?detailPath=lupin-2rBwMMWNWZ&season=1&episode=1
+```
+→ look at `onstream`. `active: true` = OnStream serving; otherwise `reason`
+tells you why. The response is `no-store` while the relay is answering, so
+it is never masked by a cache.
 
 ### 6.4 Options if the region change does not help
 

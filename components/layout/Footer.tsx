@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
+import { CATEGORIES } from "@/lib/categories";
 
 const COLUMNS = [
   {
@@ -11,6 +12,13 @@ const COLUMNS = [
       { href: "/trending", label: "Trending" },
       { href: "/movbox-app", label: "Movbox App" },
     ],
+  },
+  {
+    title: "Categories",
+    links: CATEGORIES.map((c) => ({
+      href: `/category/${c.slug}`,
+      label: c.title,
+    })),
   },
   {
     title: "Account",

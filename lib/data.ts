@@ -315,6 +315,28 @@ export async function getBoxmoviesTrending(perPage = 18): Promise<{
 
 export type ChannelId = 1 | 2 | 7;
 
+/**
+ * Every channel the upstream catalogue exposes.
+ *
+ * The browse UI only ever offers the three big ones (movies, TV, anime), but
+ * the catalogue also carries novels, short TV, music, games, sport, recipes
+ * and the music playlists. The category pages read from those.
+ */
+export type UpstreamChannelId =
+  | 1
+  | 2
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 1006
+  | 1007
+  | 1008
+  | 1009;
+
 export interface BrowseFilters {
   genre?: string | null;
   country?: string | null;
@@ -337,7 +359,7 @@ export interface BrowseResult {
 }
 
 export async function getBoxmoviesBrowse(
-  channelId: ChannelId,
+  channelId: UpstreamChannelId,
   filters: BrowseFilters = {}
 ): Promise<BrowseResult> {
   // channelId=7 in boxmovies.org's URL → channelId=1006 in h5-api
@@ -387,6 +409,66 @@ export async function getBoxmoviesBrowse(
 }
 
 // ---------------------------------------------------------------------------
+// Operating tab (the app's category tabs, served as curated sections)
+// ---------------------------------------------------------------------------
+
+export interface BoxOperatingSection {
+  /** Section title as the upstream labels it ("K-Drama", "Action", ...). */
+  title: string;
+  /** Upstream section type: SUBJECTS_MOVIE, BANNER, FILTER, ... */
+  type: string;
+  position: number;
+  items: BoxMediaCard[];
+}
+
+/**
+ * Fetch one of the app's category tabs from the h5-api.
+ *
+ * The upstream app renders its tabs as a stack of curated sections, not a
+ * flat grid. `/tab-operating?tabId=N` returns exactly that: an
+ * `operatingList` where each entry carries its own title and its own list of
+ * subjects. The Movie tab (id 2) and the Midnight tab (id 9) are the two the
+ * web BFF exposes; the others answer `PARAMS_ERROR / invalid tabId`.
+ *
+ * The upstream repeats some sections in the list, so identical
+ * position+title pairs are collapsed.
+ */
+export async function getBoxmoviesOperatingTab(
+  tabId: number
+): Promise<BoxOperatingSection[]> {
+  const r = await h5Fetch(`/tab-operating?tabId=${tabId}`, { method: "GET" });
+  // h5Fetch resolves to the parsed body: { code, message, data: { operatingList } }
+  const list = Array.isArray(r?.data?.operatingList) ? r.data.operatingList : [];
+
+  const seen = new Set<string>();
+  const out: BoxOperatingSection[] = [];
+
+  for (const s of list) {
+    if (!s || typeof s !== "object") continue;
+    // BANNER entries hold a promo, not content.
+    if (!s.subjects || !Array.isArray(s.subjects)) continue;
+    const title = String(s.title || "");
+    const key = `${s.position}|${title}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const items = s.subjects
+      .map(mapH5ItemToCard)
+      .filter(Boolean) as BoxMediaCard[];
+    if (!items.length) continue;
+
+    out.push({
+      title,
+      type: String(s.type || "SUBJECTS_MOVIE"),
+      position: Number(s.position) || 0,
+      items,
+    });
+  }
+
+  return out.sort((a, b) => a.position - b.position);
+}
+
+// ---------------------------------------------------------------------------
 // Filter options (hardcoded — h5-api doesn't expose them)
 // ---------------------------------------------------------------------------
 
@@ -427,34 +509,45 @@ const HARDCODED_FILTERS_MOVIE: FilterOptions = {
     "War",
     "Western",
   ],
+  // These must match the upstream `countryName` values exactly - the filter
+  // is an equality match, not a lookup. The list was harvested from the live
+  // catalogue; several of the old entries ("South Korea", "Russia",
+  // "Hong Kong", "Argentina") never matched anything and returned an empty
+  // grid.
   country: [
+    "Nigeria",
     "United States",
     "United Kingdom",
-    "India",
-    "Canada",
-    "France",
-    "Germany",
     "Japan",
-    "South Korea",
-    "Spain",
-    "Italy",
-    "Australia",
-    "Brazil",
     "China",
-    "Russia",
-    "Hong Kong",
-    "Taiwan",
-    "Thailand",
-    "Indonesia",
+    "Kenya",
+    "India",
+    "Korea",
     "Philippines",
-    "Vietnam",
+    "France",
+    "Indonesia",
+    "Thailand",
     "Turkey",
-    "Egypt",
-    "Nigeria",
+    "Malaysia",
+    "Russian Federation",
+    "Canada",
+    "Spain",
+    "Germany",
+    "Mexico",
+    "Pakistan",
     "South Africa",
-    "Argentina",
-    "Colombia",
-    "New Zealand",
+    "Australia",
+    "Ghana",
+    "Argentina Republic",
+    "Brazil",
+    "Sweden",
+    "Belgium",
+    "Saudi Arabia",
+    "Hongkong, China",
+    "Portugal",
+    "Taiwan",
+    "Uganda",
+    "Italy",
   ],
   year: [
     "2026",

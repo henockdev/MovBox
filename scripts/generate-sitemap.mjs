@@ -75,6 +75,14 @@ const STATIC_PAGES = [
   { url: "/genres", changeFrequency: "weekly", priority: 0.6 },
   { url: "/movbox-app", changeFrequency: "daily", priority: 0.7 },
   { url: "/blog", changeFrequency: "weekly", priority: 0.8 },
+  // Category shelves. Keep in sync with lib/categories.ts.
+  { url: "/category/kids", changeFrequency: "daily", priority: 0.8 },
+  { url: "/category/asian", changeFrequency: "daily", priority: 0.8 },
+  { url: "/category/western", changeFrequency: "weekly", priority: 0.7 },
+  { url: "/category/nollywood", changeFrequency: "daily", priority: 0.8 },
+  { url: "/category/shorttv", changeFrequency: "daily", priority: 0.7 },
+  { url: "/category/music", changeFrequency: "weekly", priority: 0.7 },
+  { url: "/category/midnight", changeFrequency: "daily", priority: 0.6 },
 ];
 
 // Blog slugs — must stay in sync with lib/blog/articles.ts. We

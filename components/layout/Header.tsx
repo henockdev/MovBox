@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { SearchBar } from "./SearchBar";
 import { AuthButton } from "./AuthButton";
+import { CategoriesMenu } from "./CategoriesMenu";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -69,6 +70,7 @@ export function Header() {
               </Link>
             );
           })}
+          <CategoriesMenu />
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5 md:gap-2.5">
