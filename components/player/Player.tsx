@@ -217,6 +217,49 @@ function flagEmoji(code?: string | null): string {
   return FLAG_BY_LANG[c] || "🌍";
 }
 
+/**
+ * Apply the subtitle modes to a video element's text tracks.
+ *
+ * `activeIdx` of -1 means "the user has not picked a language yet", so the
+ * first track is the effective default.
+ *
+ * A plain function, not a hook, on purpose: the player keeps a fixed hook
+ * count (see the note in the component) and BOTH the create-tracks effect and
+ * the apply-modes effect need this.
+ */
+function applySubtitleModes(
+  video: HTMLVideoElement,
+  show: boolean,
+  activeIdx: number
+) {
+  const effectiveIdx = activeIdx === -1 ? 0 : activeIdx;
+  const tracks = Array.from(video.textTracks);
+  tracks.forEach((t, i) => {
+    if (!show) {
+      t.mode = "disabled";
+    } else if (i === effectiveIdx) {
+      t.mode = "showing";
+    } else {
+      t.mode = "hidden";
+    }
+  });
+}
+
+/**
+ * What the viewer currently wants: subtitles on/off, and which language.
+ *
+ * Held in a WeakMap rather than a ref so the two effects can share it without
+ * adding a hook. The track `load` handler fires long after the effect that
+ * created the track ran, so it must read the CURRENT intent — not the one
+ * captured when the track was created — or switching subtitles off while a
+ * track is still loading would switch them back on.
+ */
+interface SubtitleIntent {
+  show: boolean;
+  idx: number;
+}
+const subtitleIntent = new WeakMap<HTMLVideoElement, SubtitleIntent>();
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -367,6 +410,20 @@ export function Player({
       const shouldBeDefault =
         showSubtitles && (i === activeSubtitleIdx || (activeSubtitleIdx === -1 && i === 0));
       if (shouldBeDefault) track.default = true;
+
+      // The cues do not exist until the track resource has actually loaded,
+      // and that is not instant — the proxy has to pull the .srt off the
+      // upstream CDN first. Chrome re-runs its automatic text-track
+      // selection the moment a track finishes loading, and that can put the
+      // track back to "disabled". That is how the subtitles could be listed
+      // in the menu and still never appear on screen.
+      //
+      // So: re-assert the modes the instant the cues arrive.
+      track.addEventListener("load", () => {
+        const intent = subtitleIntent.get(video);
+        if (intent) applySubtitleModes(video, intent.show, intent.idx);
+      });
+
       video.appendChild(track);
     }
 
@@ -535,36 +592,23 @@ export function Player({
     const video = videoRef.current;
     if (!video) return;
 
-    // The "effective" subtitle index. When the user hasn't picked one
-    // yet (activeSubtitleIdx === -1) we treat the first available
-    // track as the default so subs actually show on first load —
-    // otherwise every track would be set to "hidden" and nothing
-    // would render even though the user expects "subs on by default".
-    const effectiveIdx = activeSubtitleIdx === -1 ? 0 : activeSubtitleIdx;
-
-    const applyModes = () => {
-      const tracks = Array.from(video.textTracks);
-      tracks.forEach((t, i) => {
-        if (!showSubtitles) {
-          t.mode = "disabled";
-        } else if (i === effectiveIdx) {
-          t.mode = "showing";
-        } else {
-          t.mode = "hidden";
-        }
-      });
-    };
+    // Publish the current intent so the per-track `load` handler (which
+    // fires seconds later, after the cues exist) applies the SAME modes
+    // rather than a stale snapshot from the render that created the track.
+    subtitleIntent.set(video, { show: showSubtitles, idx: activeSubtitleIdx });
 
     // Apply once now (covers the case where tracks are already in the list).
-    applyModes();
+    applySubtitleModes(video, showSubtitles, activeSubtitleIdx);
 
     // Apply again whenever a new track element is added (browser fires
     // addtrack on the tracklist, not on the video, in all modern browsers).
     const trackList = video.textTracks;
-    const onAddTrack = () => applyModes();
+    const onAddTrack = () =>
+      applySubtitleModes(video, showSubtitles, activeSubtitleIdx);
     trackList.addEventListener?.("addtrack", onAddTrack);
     // Some browsers fire `load` on each track element instead.
-    const onLoadedMetadata = () => applyModes();
+    const onLoadedMetadata = () =>
+      applySubtitleModes(video, showSubtitles, activeSubtitleIdx);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
 
     return () => {
