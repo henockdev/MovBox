@@ -261,7 +261,33 @@ fixed deployment is not masked by a cached fallback.
 
 ---
 
-## 8. SEO (completed, live, do not regress)
+## 8. SEO / GEO (recalibrated 2026-11-06 — see `docs/SEO-RECALIBRATION.md`)
+
+> The owner reported *"since you edited it you ruined the SEO — no impressions
+> and clicks"*. Five real defects were behind it. They are fixed, measured and
+> documented in **`docs/SEO-RECALIBRATION.md`** — read that before touching
+> metadata. The short version:
+
+| Defect | Fix |
+|---|---|
+| `lib/data.ts` minted its token with `cache: "no-store"` and every catalogue fetch carried an `AbortSignal` — both opt a Next.js route out of static rendering, so **every page was `private, no-cache, no-store` and re-rendered per request** (3.7 s homepage, 5.5 s `/most-watched`) | `next: { revalidate }` on the fetches; the timeout is a promise race (`withTimeout`), never an abort — aborting would poison the cache entry |
+| `/trending` read `data.items`; the upstream returns `data.subjectList` → the page rendered empty | reads `subjectList` |
+| Index pages had 36-char descriptions and 15-char titles | every indexable route has a title ≤ 65 chars and a description in the **120–160** band. `clampDescription()` in `lib/seo.ts` cuts the raw upstream synopses (up to 210 chars) on a sentence boundary, never mid-word |
+| `/about`, `/contact`, `/privacy`, `/terms` were linked in the footer but did not exist | all four exist now, with real prose, breadcrumb and FAQ markup |
+| The homepage fetched 132 posters eagerly | shelves capped at 16, only the first row of each page loads eagerly. RSC payload 1 463 094 B → **176 161 B** |
+
+**New in the same change:** the app's full ranking system (`/rankings` + a
+prerendered `/rankings/<group>` for each of the 22 groups, path segments not
+`?g=`, so they cache), **Trending in the header nav** next to Rankings,
+`llms.txt`, a `robots.txt` pointing at both sitemaps, site-wide
+`WebSite` + `Organization` + `SearchAction` JSON-LD, a homepage `ItemList`,
+and `/category/live` as a `noindex` signpost to the external live hub.
+
+**Do not regress any of this.** In particular, never reintroduce
+`cache: "no-store"` or an `AbortSignal` on a catalogue fetch — that single
+regression is what killed the crawl.
+
+The earlier work below still stands:
 
 - `lib/seo.ts` — `absUrl`, `pageSeo`, `clampEpisodeNumber`, `detailCanonical`.
 - Self-canonical + matching `og:url` on every indexable page; `noindex` on
@@ -274,17 +300,67 @@ fixed deployment is not masked by a cached fallback.
   `<head>`** for crawlers (verified: `</head>` at byte 4,005 vs 1,895 before).
 - Kind-mismatch pages (`/movie/<tv-id>`, `/tv/<movie-id>`, `/movies/<id>`) →
   canonical to the sibling + `noindex` + existing client-side redirect.
-- `scripts/generate-sitemap.mjs` — build-time sitemap, `PAGES_PER_CHANNEL`
-  default **4** (≈20.7k URLs live, 594 videos), real `lastmod` from upstream
-  release dates, never future-dated, per-episode watch URLs, 429 backoff.
-- `app/robots.ts` — allows everything, disallows only `/api/` and `/admin/`,
-  lists `/sitemap-index.xml` and `/sitemap.xml`.
+- `scripts/generate-sitemap.mjs` — build-time sitemap, real `lastmod` from
+  upstream release dates, never future-dated, per-episode watch URLs, 429
+  backoff. Now also emits `/rankings/<group>` for every group and the four
+  new static pages: **24 592 URLs** (23 751 episodes), 595 videos.
+- `public/robots.txt` — allows everything, disallows only `/api/` and
+  `/admin/`, lists `/sitemap-index.xml` and `/sitemap.xml`, and points at
+  `/llms.txt`. (Replaced the old `app/robots.ts` metadata route.)
 - **Keep the `?s=&e=` episode URL scheme** — zero URL churn. Query-param
   canonicals are valid.
+
+### 8.1 Metadata rules (violated once already)
+
+- The root layout sets `title.template = "%s | Movbox"`. **Never put `| Movbox`
+  in a `title`** — it renders as `… | Movbox | Movbox`. Twelve pages had this.
+- Descriptions belong in the **120–160** band. Below 120 Google rewrites them;
+  above 160 it truncates mid-word.
+- Every indexable route needs a title ≤ 65 chars, a description in the band, a
+  self-canonical, an `og:url` matching it, exactly one `<h1>`, and JSON-LD.
 
 ---
 
 ## 9. Verified test results
+
+### 9.1 SEO / GEO recalibration (2026-11-06)
+
+| Check | Result |
+|---|---|
+| `npx next build` (Turbopack) | exit 0 — `/`, `/trending`, `/most-watched`, `/rankings`, `/category/*`, `/about`, `/contact`, `/privacy`, `/terms` are **static**; `/rankings/<group>` is **SSG with all 22 groups prerendered** (`generateStaticParams`) |
+| `Cache-Control` on `/` | `private, no-cache, no-store, max-age=0, must-revalidate` → **`s-maxage=600, stale-while-revalidate=31535400`** |
+| TTFB `/` | 3 672 ms → **556 ms** |
+| TTFB `/most-watched` | 5 514 ms → **735 ms** |
+| `scripts/seo-structure-check.mjs` (19 routes) | **0 problems** — every title ≤ 65 chars, every description in the 120–160 band, `og:url` == canonical, exactly one `<h1>` per page, every JSON-LD block parses, no duplicate titles or descriptions |
+| `scripts/verify-routes.mjs` (65 routes) | **65/65 OK** — every page family, all 8 categories, all 22 ranking groups, detail + watch routes, all API routes (the two proxies correctly answer 400 for a malformed `url`) |
+| `scripts/probe-subtitles.mjs` | 7/7 caption tracks return 200 `text/vtt` with valid WebVTT cues |
+| Homepage RSC payload | 1 463 094 B → **176 161 B** (−88 %) |
+| Homepage over the wire (brotli, as Vercel serves it) | 64 457 B — **unchanged**; the markup compresses away, so the win was the cache, not the payload |
+| Secret audit | clean — `ONSTREAM_GATEWAY_SECRET_B64` is only in the untracked `.env.local`; `.env.example` holds empty values |
+| Live sitemap | 24 592 locs · `video-sitemap.xml` 595 locs |
+
+### 9.2 The subtitle bug (fixed 2026-11-06)
+
+*"It lists the available subtitle but not rendering them."*
+
+The feed was never broken — the proxy serves valid WebVTT for every language.
+The bug was a **race in `components/player/Player.tsx`**: the player set
+`textTracks[i].mode = "showing"` before the cues existed (the proxy has to
+pull the `.srt` off the upstream CDN first, which takes seconds), and Chrome
+re-runs its automatic text-track selection when the track finally loads and
+can put it back to `disabled`. The code had a comment promising a `load`
+listener that was never registered; it is now.
+
+The player's hook count is deliberately unchanged (the component notes a
+cached-chunk crash from adding a hook), so the current intent is shared
+through a module-level `WeakMap` rather than a ref.
+
+Verified: the tracks carry `kind`/`srclang`/`label`/`default`, the English
+track is the default, the cue renders over the video, and the video element
+now reports the active caption track where it previously reported an
+unselected one.
+
+### 9.3 Baseline (earlier)
 
 | Check | Result |
 |---|---|
@@ -293,11 +369,10 @@ fixed deployment is not masked by a cached fallback.
 | `npx next build` (Turbopack) | exit 0 |
 | `npx next build --webpack` | exit 0 |
 | Live Googlebot head probe | canonical + title + og:url all inside `<head>` |
-| Live sitemap | `sitemap.xml` 20,724 locs · `video-sitemap.xml` 594 locs |
 | Local prod `/api/sources` (key present) | `provider=onstream`, 4 rungs 1080→360, 11 caption tracks, host `bcdn.hakunaymatata.com` |
 | Local prod `/api/video-proxy` on bcdn | 206, valid MP4 `ftyp` box |
 | Local prod `/api/subtitle-proxy` | 200 `text/vtt`, 50,236 B, first line `WEBVTT` |
-| Secret audit (`git grep -F`) | clean — secret absent from the tracked tree; `.env.local` is gitignored (`.gitignore:58`) |
+| Secret audit (`git grep -F`) | clean — secret absent from the tracked tree; `.env.local` is gitignored |
 | OnStream host survey (40 titles) | 1 host only: `bcdn.hakunaymatata.com` |
 
 **Turbopack build note:** a stale, dev-polluted `.next` causes a font-resolution
@@ -316,11 +391,17 @@ working tree + stale `.next` → font error.
 | `eed8e39` | `/api/sources` OnStream diagnostic |
 | `23623cb` | keep the gateway response body in the bootstrap error |
 | `36e8de4` | pin the OnStream resolver to `sin1` (region test) |
+| `c38acea` | the app's category shelves + the hero slide strip |
+| `dc374b5` | **SEO/GEO recalibration**: every route cacheable again, metadata rewritten, the app's ranking system on the web, Trending in the header nav, llms.txt + robots.txt + site identity JSON-LD, the four missing pages |
+| `5f49602` | **fix(player)**: re-assert the subtitle track mode once the cues have loaded |
 
-All pushed to `main`. `git ls-remote origin main` =
-`36e8de4…` — confirmed against the server, not just the local ref. Commit
-identity `amdiyehenok-cmd <amdiyehenok@gmail.com>` is consistent across the
-whole history.
+All pushed to `main`. Commit identity `amdiyehenok-cmd <amdiyehenok@gmail.com>`
+is consistent across the whole history.
+
+**Deployment is a `git push` to `main`** — Vercel builds it. There is no
+Oracle Cloud in the loop; the stale "Deploy to Oracle Cloud Always Free"
+line in `docs/HANDOFF.md` is from the pre-Vercel era and is overridden by the
+current-state block at the top of that file.
 
 ---
 
@@ -352,29 +433,48 @@ whole history.
 8. **Mojibake repair** (14 files / 66 lines) restored intended characters
    (em dash, box rules, middle dot, arrow, ellipsis). A bug fix, but a
    visible change, so it is reported rather than buried.
+9. **The upstream relay throttles under load.** While the sitemap generator
+   was pulling ~600 detail URLs, `/api/video-proxy` started returning
+   **502 Bad Gateway** and the player stalled on "Buffering…". The player
+   handles it (Retry button, descending ladder), but a heavy build run can
+   leave the CDN slow for the machine that ran it. Not a code defect.
+10. **The subtitle feed is slow to arrive** (9–12 s locally). The cues are
+    correct and the mode is re-asserted when they land, but there is a window
+    where the user can press play before the first cue exists. The video
+    itself takes just as long to buffer, so in practice it is not visible.
+
+**Fixed 2026-11-06 and no longer open:**
+
+- *Subtitles listed but not rendering* — see §9.2.
+- *Nothing was cacheable; every page re-rendered per request* — see §8.
 
 ---
 
 ## 12. Next steps, in priority order
 
-1. **Read the §6.3 region-test result** for commit `36e8de4` (poll
+1. **Watch the crawl come back.** The site was serving `no-store` with a
+   3.7–5.5 s render across 24 592 sitemap URLs; that is what "no impressions
+   and clicks" was. The fix is live — give Google a week or two before
+   judging. `scripts/wait-for-deploy.mjs` and `scripts/seo-structure-check.mjs`
+   are the tools.
+2. **Watch the index for thin URLs.** 23 751 of the 24 592 sitemap URLs are
+   episode watch pages. They have unique titles, descriptions and
+   `VideoObject` markup, but the volume is a crawl-budget risk if the crawl
+   rate does not come back. If it does not, cut `SITEMAP_PAGES_PER_CHANNEL`
+   or drop the episode URLs.
+3. **Read the §6.3 region-test result** for commit `36e8de4` (poll
    `https://movbox.xyz/api/sources?detailPath=lupin-2rBwMMWNWZ&season=1&episode=1`
    and read `onstream.reason`). If `active: true` → the cutover is done;
    verify playback and update this document.
-2. **If still 440:** pick a §6.4 option. The Cloudflare Worker is the cleanest
+4. **If still 440:** pick a §6.4 option. The Cloudflare Worker is the cleanest
    (it also unlocks the app category tabs and keeps media bytes off the
    relay). Needs the owner's Cloudflare account.
-3. **Build the categories that do not depend on api6:**
+5. **Build the categories that do not depend on api6:**
    - `Midnight` from `tab-operating?tabId=9` (h5-api, works today).
    - Decide the Midnight / 18+ content policy before publishing it on a
      public, indexable site (see §13).
-4. **Clarify "Trading"** — most likely *Trending*, which already exists.
-5. **Scrollable hero cards** (§13) — pure frontend over existing h5-api
-   data, no backend dependency. This is the one workstream that can proceed
-   in parallel with §6.
-6. **Decide the TMDB genre-page problem** (§11.2).
-7. **Write `docs/` content for the new category pages** so each one is
-   unique and indexable, not a thin generated page.
+6. **Clarify "Trading"** — most likely *Trending*, which already exists.
+7. **Decide the TMDB genre-page problem** (§11.2).
 8. **Update this document** after each meaningful change.
 
 ---

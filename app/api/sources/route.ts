@@ -59,24 +59,32 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
 }
 
 /**
- * Subtitle URLs need different treatment per backend.
+ * Subtitle URLs always go through our own proxy.
  *
- * A relay /subtitle URL is already WebVTT served by the relay — pass it
- * through untouched. A RAW upstream caption URL (the OnStream path) has to go
- * through our own proxy: the CDN demands a Referer the browser cannot set,
- * and a browser <track> only understands text/vtt, which our proxy
- * guarantees by converting SRT on the way out.
+ * A browser <track> element ALWAYS fetches in CORS mode, unlike <video>,
+ * which is no-cors. A cross-origin <track> therefore has to pass a CORS
+ * preflight first.
+ *
+ * The relay's preflight answers `Access-Control-Allow-Origin: *` but omits
+ * `Access-Control-Allow-Methods`, so Chrome rejects the preflight and never
+ * issues the request at all. The result on production was a subtitle menu
+ * that listed every language and a player that never showed a single cue -
+ * while the video played perfectly, because <video> never does the CORS
+ * check.
+ *
+ * Routing every caption URL through /api/subtitle-proxy fixes it:
+ *   - the request is same-origin, so there is no preflight to fail;
+ *   - the proxy sends Access-Control-Allow-Methods: GET and
+ *     Access-Control-Allow-Headers: * itself;
+ *   - the proxy guarantees text/vtt, converting SRT on the way out.
+ *
+ * The relay host is already on the proxy's allowlist, so a relay caption URL
+ * works exactly like a raw CDN one.
  */
 function toPlayerSubtitleUrl(upstreamOrRelayUrl: string): string {
   if (!upstreamOrRelayUrl) return upstreamOrRelayUrl;
   if (upstreamOrRelayUrl.startsWith("/api/subtitle-proxy")) {
     return upstreamOrRelayUrl;
-  }
-  try {
-    const u = new URL(upstreamOrRelayUrl, "http://relay.invalid");
-    if (u.pathname.endsWith("/subtitle")) return upstreamOrRelayUrl;
-  } catch {
-    /* unparseable -> fall through to the legacy proxy */
   }
   return `/api/subtitle-proxy?url=${encodeURIComponent(upstreamOrRelayUrl)}`;
 }
@@ -163,7 +171,10 @@ export async function GET(req: NextRequest) {
         if (resolved && resolved.rungs.length) {
           const captions: BoxCaption[] = resolved.captions.map((c) => ({
             id: c.id,
-            url: c.url,
+            // Proxied for the same reason as the relay path: a raw
+            // cross-origin caption url cannot be loaded by a browser
+            // <track> element (CORS preflight).
+            url: toPlayerSubtitleUrl(c.url),
             languageCode: c.languageCode,
             language: c.language,
             delay: c.delay,
@@ -261,6 +272,19 @@ export async function GET(req: NextRequest) {
       `stream ${detailPath}`,
     );
 
+    // The top-level caption list also carries the PROXIED url, so a raw
+    // cross-origin caption url can never reach the browser through the
+    // fallback path (the player uses sources[].subtitles, but this array is
+    // the fallback for it and is read by other callers too).
+    const captions: BoxCaption[] = data.captions.map((c) => ({
+      id: c.id,
+      url: toPlayerSubtitleUrl(c.url),
+      languageCode: c.languageCode,
+      language: c.language,
+      delay: c.delay,
+      sizeBytes: c.sizeBytes,
+    }));
+
     const sources: BoxSource[] = data.sources.map((s) => ({
       id: s.id,
       url: s.url,
@@ -272,9 +296,9 @@ export async function GET(req: NextRequest) {
       format: s.format,
       codec: s.codec,
       vipLocked: s.vipLocked,
-      subtitles: data.captions.map((c) => ({
+      subtitles: captions.map((c) => ({
         id: c.id,
-        url: toPlayerSubtitleUrl(c.url),
+        url: c.url,
         languageCode: c.languageCode,
         language: c.language,
         delay: c.delay,
@@ -283,9 +307,9 @@ export async function GET(req: NextRequest) {
       provider: RELAY_PROVIDER,
     }));
 
-    const subtitleTracks = data.captions.map((c) => ({
+    const subtitleTracks = captions.map((c) => ({
       id: c.id,
-      url: toPlayerSubtitleUrl(c.url),
+      url: c.url,
       language: c.languageCode,
       label: c.language,
     }));
@@ -306,7 +330,7 @@ export async function GET(req: NextRequest) {
       vipLocked: !!data.vipLocked,
       freeStreamsRemaining: data.freeStreamsRemaining,
       sources,
-      captions: data.captions,
+      captions,
       subtitleTracks,
       count: sources.length,
       provider: RELAY_PROVIDER,
