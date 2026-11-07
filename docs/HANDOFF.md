@@ -43,36 +43,61 @@ fetch.** That is the single regression that kills the crawl.
 
 *"It lists the available subtitle but not rendering them."*
 
-The feed was never broken — `/api/subtitle-proxy` returns valid WebVTT for
-every language (verified: 7/7 tracks, `200`, `text/vtt`, cues present). The
-bug was a **race in `components/player/Player.tsx`**.
+There were **two** defects. The second was the one that actually broke
+production, and it was only visible in the browser's network log.
 
-The player sets `textTracks[i].mode = "showing"` the moment it creates the
-`<track>` elements — but the cues do not exist yet. The proxy has to pull the
-`.srt` off the upstream CDN first, and that takes seconds. When the track
-finally loads, Chrome re-runs its automatic text-track selection and can put
-the track back to `disabled`. Result: the language menu listed seven
-subtitles and none of them ever appeared.
+**1. The CORS preflight (production).** A browser `<track>` element **always**
+fetches in CORS mode; a cross-origin `<video>` does not — it is no-cors.
+That asymmetry is why the video played perfectly and not one subtitle cue
+ever appeared.
 
-The code even had a comment promising a `load` listener that was never
-registered. The fix registers it, and keeps the player's hook count fixed
-(the component has a note about a cached-chunk crash) by sharing the current
-intent through a module-level `WeakMap` rather than adding a ref.
+`app/api/sources/route.ts` handed the browser a raw relay caption URL
+whenever the path ended in `/subtitle`. The relay's preflight answers
+`Access-Control-Allow-Origin: *` but omits
+`Access-Control-Allow-Methods`, so Chrome rejects it and never issues the
+request. Measured: all 14 caption requests (preflight + GET for 7 tracks)
+failed instantly.
 
-**Apply when:** touching the player's text-track handling. If subtitles stop
-appearing, check that the `load` handler on each `<track>` is still calling
-`applySubtitleModes`.
+Every caption URL now goes through `/api/subtitle-proxy` — same-origin, no
+preflight, and the proxy guarantees `text/vtt`. The relay host was already
+on the proxy's allowlist.
+
+**2. The track-mode race.** The player set `mode = "showing"` before the
+cues existed (the proxy has to pull the `.srt` off the upstream CDN first,
+which takes seconds), and Chrome's automatic text-track selection can put
+the track back to `disabled` when it finally loads. The code had a comment
+promising a `load` listener that was never registered; it is now. The
+player's hook count is deliberately left fixed (the component notes a
+cached-chunk crash from adding a hook), so the current intent is shared
+through a module-level `WeakMap` rather than a ref.
+
+**Apply when:** touching the player's text-track handling, or the caption
+URL construction in `app/api/sources/route.ts`. If subtitles stop appearing,
+check that every caption URL is proxied and that the `load` handler on each
+`<track>` still calls `applySubtitleModes`.
 
 ### Regression suite
 
 ```
+node scripts/verify-routes.mjs http://localhost:3210        # must print: 65/65 OK
 node scripts/seo-structure-check.mjs http://localhost:3210   # must print: PROBLEMS: none
+node scripts/probe-subtitles.mjs http://localhost:3210       # must print: all caption URLs are same-origin
 node scripts/seo-probe.mjs http://localhost:3210
 node scripts/seo-homepage-weight.mjs http://localhost:3210
 ```
 
 Run them against a local production build (`npx next build && npx next start
 -p 3210`), not only against the live site.
+
+`probe-subtitles.mjs` is the guard for the subtitle bug: it exits non-zero if
+any caption URL points at a foreign origin, or if any track does not come
+back as valid WebVTT. `wait-for-deploy.mjs` and `wait-for-subtitle-fix.mjs`
+poll the live site for a finished deploy.
+
+Note for a local run: `api6.aoneroom.com` is reachable from this machine but
+answers **440** from Vercel, so the local build takes the OnStream path and
+production takes the relay fallback. Both paths are covered by the fix, but
+only production exercises the relay one — verify it there.
 
 ### Metadata rules (violated once already)
 

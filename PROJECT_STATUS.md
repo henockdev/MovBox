@@ -339,17 +339,55 @@ The earlier work below still stands:
 | Secret audit | clean — `ONSTREAM_GATEWAY_SECRET_B64` is only in the untracked `.env.local`; `.env.example` holds empty values |
 | Live sitemap | 24 592 locs · `video-sitemap.xml` 595 locs |
 
-### 9.2 The subtitle bug (fixed 2026-11-06)
+### 9.2 The subtitle bug (fixed 2026-11-06, in two commits)
 
 *"It lists the available subtitle but not rendering them."*
 
-The feed was never broken — the proxy serves valid WebVTT for every language.
-The bug was a **race in `components/player/Player.tsx`**: the player set
-`textTracks[i].mode = "showing"` before the cues existed (the proxy has to
-pull the `.srt` off the upstream CDN first, which takes seconds), and Chrome
-re-runs its automatic text-track selection when the track finally loads and
-can put it back to `disabled`. The code had a comment promising a `load`
-listener that was never registered; it is now.
+There were **two** independent defects. The first was found by reading the
+player; the second was the one actually breaking production, and it was only
+visible in the browser's network log.
+
+**1. The CORS preflight (production — this was the real one).**
+
+A browser `<track>` element **always** fetches in CORS mode. A cross-origin
+`<video>` does not — it is no-cors. That asymmetry is exactly why the video
+played perfectly while not one subtitle cue ever appeared.
+
+`app/api/sources/route.ts` had a special case that handed the browser a raw
+relay caption URL:
+
+```ts
+if (u.pathname.endsWith("/subtitle")) return upstreamOrRelayUrl;
+```
+
+The assumption — "a relay /subtitle URL is already WebVTT, so pass it
+through" — was half right. It *is* WebVTT, but the relay's CORS preflight
+answers `Access-Control-Allow-Origin: *` and **omits
+`Access-Control-Allow-Methods`**. Chrome rejects that preflight and never
+issues the request.
+
+Measured on production before the fix: **all 14 caption requests (preflight
++ GET for each of 7 tracks) failed instantly, and not one succeeded.**
+
+The fix routes every caption URL through `/api/subtitle-proxy`, which the
+OnStream path already used. Same-origin, so no preflight to fail; the proxy
+sends the correct CORS headers itself; the proxy guarantees `text/vtt`. The
+relay host was already on the proxy's allowlist, so a relay caption URL
+works exactly like a raw CDN one. The top-level `captions` array now carries
+the proxied url too, so no raw caption url can reach the browser by any path.
+
+Video is deliberately left alone — relay video URLs still pass through raw,
+because `<video>` is no-cors and a proxy hop would only add latency to the
+byte path.
+
+**2. The track-mode race (real, but not why production was blank).**
+
+The player set `textTracks[i].mode = "showing"` the moment it created the
+`<track>` elements, but the cues do not exist yet — the proxy has to pull the
+`.srt` off the upstream CDN first, and that takes seconds. When the track
+finally loads, Chrome re-runs its automatic text-track selection and can put
+it back to `disabled`. The code had a comment promising a `load` listener
+that was never registered; it is now.
 
 The player's hook count is deliberately unchanged (the component notes a
 cached-chunk crash from adding a hook), so the current intent is shared
@@ -357,8 +395,8 @@ through a module-level `WeakMap` rather than a ref.
 
 Verified: the tracks carry `kind`/`srclang`/`label`/`default`, the English
 track is the default, the cue renders over the video, and the video element
-now reports the active caption track where it previously reported an
-unselected one.
+reports the active caption track where it previously reported an unselected
+one.
 
 ### 9.3 Baseline (earlier)
 
