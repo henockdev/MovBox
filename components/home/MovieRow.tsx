@@ -20,6 +20,16 @@ interface MovieRowProps {
    * a page carries sponsored inventory is decided at the page level.
    */
   adEvery?: number;
+  /**
+   * How many of the first cards load eagerly.
+   *
+   * A `priority` poster is fetched at high priority, before the browser has
+   * decided what is above the fold. The row used to mark its first **four**
+   * cards as priority — on a page with thirty rows that was 132 eagerly
+   * fetched posters, which is the opposite of what the flag is for. Only the
+   * first row of a page should use it.
+   */
+  priorityCount?: number;
 }
 
 /**
@@ -41,6 +51,7 @@ export function MovieRow({
   icon,
   iconClassName,
   adEvery: _adEvery = 0, // intentionally unused; kept for prop compat
+  priorityCount = 0,
 }: MovieRowProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -100,7 +111,7 @@ export function MovieRow({
             <MovieCard
               key={`${media.type}-${media.id}-${i}`}
               media={media}
-              priority={i < 4}
+              priority={i < priorityCount}
             />
           ))}
         </div>

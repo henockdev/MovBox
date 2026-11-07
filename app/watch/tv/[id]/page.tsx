@@ -3,7 +3,12 @@ import WatchTVClient from "@/components/watch/WatchTVClient";
 import { WatchJsonLd } from "@/components/seo/WatchJsonLd";
 import { getBoxmoviesDetail } from "@/lib/data";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
-import { baseShowTitle, clampEpisodeNumber, pageSeo } from "@/lib/seo";
+import {
+  baseShowTitle,
+  clampDescription,
+  clampEpisodeNumber,
+  pageSeo,
+} from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -63,10 +68,15 @@ export async function generateMetadata({
     details.detailPath
   )}?s=${season}&e=${episode}`;
 
+  // The prefix eats most of the 160-character budget, so the synopsis is
+  // clamped to whatever room is left — on a word boundary, never mid-word.
+  const prefix = `Watch ${show} season ${season} episode ${episode} free on ${SITE_NAME}.`;
   const synopsis = (details.synopsis || "").trim();
-  const description = `Watch ${show} season ${season} episode ${episode} free on ${SITE_NAME}.${
-    synopsis ? ` ${synopsis.slice(0, 160)}` : ""
-  }`.trim();
+  const room = 160 - prefix.length - 1;
+  const description =
+    room >= 40 && synopsis
+      ? `${prefix} ${clampDescription(synopsis, room, 40)}`
+      : clampDescription(prefix, 160);
 
   return pageSeo({
     path,

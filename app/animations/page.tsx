@@ -12,9 +12,19 @@ export const revalidate = 600;
 
 export const metadata: Metadata = pageSeo({
   path: "/animations",
-  title: "Animations",
+  title: "Anime & Cartoon Movies — Watch Free in HD",
   description:
-    "Anime, cartoons, and animated movies & series. Stream them free on Movbox.",
+    "Stream anime, cartoons and animated movies and series free on Movbox. Dubbed and subtitled in English, from big blockbusters and classics to the newest series.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "anime",
+    "cartoon movies",
+    "animated series",
+    "anime english dub",
+    "kids animation",
+  ],
 });
 
 export default async function AnimationsPage() {

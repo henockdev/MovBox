@@ -124,6 +124,46 @@ export function pageSeo(input: PageSeoInput): Metadata {
 }
 
 /**
+ * Clamp a meta description to a length a search engine will actually show.
+ *
+ * Google renders roughly 155-160 characters of a meta description before it
+ * truncates with an ellipsis of its own. Anything longer is cut at an
+ * arbitrary point — often mid-word — so the snippet reads as broken. Cutting
+ * it here, on a sentence boundary where one exists, keeps the snippet whole.
+ *
+ * The floor matters as much as the ceiling. The regression that started this
+ * work was descriptions that were far too SHORT (36 characters on /trending),
+ * so the clamp never shortens a description below a readable length unless
+ * the source itself is that short.
+ *
+ * @param text  The raw description.
+ * @param max   Hard ceiling. Default 160.
+ * @param min   Preferred floor for a sentence-boundary cut. Default 100.
+ */
+export function clampDescription(
+  text: string,
+  max = 160,
+  min = 100
+): string {
+  const s = String(text || "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  if (s.length <= max) return s;
+
+  const slice = s.slice(0, max);
+
+  // Prefer the longest sentence-complete prefix.
+  const ends = [...slice.matchAll(/[.!?](?=\s|$)/g)];
+  const lastEnd = ends.length ? (ends[ends.length - 1].index ?? 0) + 1 : 0;
+  if (lastEnd >= min) return slice.slice(0, lastEnd).trim();
+
+  // Otherwise cut on a word boundary — never mid-word.
+  const cut = slice.replace(/\s+\S*$/, "").trim();
+  if (cut.length >= min) return `${cut}…`;
+
+  return `${slice.trimEnd()}…`;
+}
+
+/**
  * Clamp an untrusted season/episode value to a sane integer.
  * Mirrors the clamp the watch page applies client-side so the server
  * metadata and the client UI always agree on the episode being shown.

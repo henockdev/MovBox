@@ -1,0 +1,18 @@
+User-Agent: *
+Allow: /
+
+# /api/ and /admin/ are not content. The account and search routes are
+# deliberately NOT disallowed: they carry a `noindex` directive on the page
+# itself, and a crawler has to be able to fetch a URL to read that directive.
+Disallow: /api/
+Disallow: /admin/
+
+# The index points at both child sitemaps. Listing them here as well means a
+# crawler that only reads robots.txt still discovers the sitemap set.
+Sitemap: https://movbox.xyz/sitemap-index.xml
+Sitemap: https://movbox.xyz/sitemap.xml
+
+# A plain-text summary of the site for assistants and AI crawlers.
+# https://llmstxt.org
+# Served at https://movbox.xyz/llms.txt and linked from every page's head
+# with <link rel="llms-txt" href="/llms.txt">.

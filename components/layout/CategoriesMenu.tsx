@@ -62,6 +62,33 @@ export function CategoriesMenu() {
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-[520px] rounded-xl border border-border bg-surface-elevated p-3 shadow-elevated">
+          {/* Trending and Rankings are the app's own discovery surfaces. The
+              top bar only shows them from md up, so they are repeated here
+              for a phone. */}
+          <ul className="mb-3 grid grid-cols-2 gap-1 border-b border-border pb-3">
+            {[
+              { href: "/trending", label: "Trending", tagline: "What is hot right now" },
+              { href: "/rankings", label: "Rankings", tagline: "Every ranking, ranked" },
+            ].map((entry) => (
+              <li key={entry.href}>
+                <Link
+                  href={entry.href}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "block rounded-lg px-3 py-2 transition-colors",
+                    pathname.startsWith(entry.href)
+                      ? "bg-surface text-accent-bright"
+                      : "text-text-secondary hover:bg-surface hover:text-cream"
+                  )}
+                >
+                  <span className="block text-[13px] font-medium">{entry.label}</span>
+                  <span className="mt-0.5 block text-[11px] text-text-muted">
+                    {entry.tagline}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
           <ul className="grid grid-cols-2 gap-1">
             {CATEGORIES.map((cat) => (
               <li key={cat.slug}>

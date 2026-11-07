@@ -69,12 +69,20 @@ const STATIC_PAGES = [
   { url: "/", changeFrequency: "daily", priority: 1.0 },
   { url: "/movies", changeFrequency: "daily", priority: 0.9 },
   { url: "/tv", changeFrequency: "daily", priority: 0.9 },
-  { url: "/trending", changeFrequency: "hourly", priority: 0.8 },
+  { url: "/trending", changeFrequency: "hourly", priority: 0.85 },
+  { url: "/rankings", changeFrequency: "daily", priority: 0.85 },
   { url: "/animations", changeFrequency: "weekly", priority: 0.7 },
   { url: "/most-watched", changeFrequency: "daily", priority: 0.7 },
   { url: "/genres", changeFrequency: "weekly", priority: 0.6 },
   { url: "/movbox-app", changeFrequency: "daily", priority: 0.7 },
   { url: "/blog", changeFrequency: "weekly", priority: 0.8 },
+  // The company pages. They used to be linked from the footer while the
+  // pages themselves did not exist — every one of them answered 404 on
+  // every page of the site.
+  { url: "/about", changeFrequency: "monthly", priority: 0.5 },
+  { url: "/contact", changeFrequency: "monthly", priority: 0.5 },
+  { url: "/privacy", changeFrequency: "monthly", priority: 0.3 },
+  { url: "/terms", changeFrequency: "monthly", priority: 0.3 },
   // Category shelves. Keep in sync with lib/categories.ts.
   { url: "/category/kids", changeFrequency: "daily", priority: 0.8 },
   { url: "/category/asian", changeFrequency: "daily", priority: 0.8 },
@@ -388,6 +396,39 @@ async function collectGenrePages() {
   return out;
 }
 
+/**
+ * The ranking groups.
+ *
+ * Every group the upstream's ranking route publishes gets its own URL under
+ * /rankings/<slug>. They are the app's ranking blocks, on the web — and each
+ * one is a distinct, content-rich, self-canonical page with an ItemList of
+ * its own, so each can be indexed and quoted on its own.
+ */
+async function collectRankingPages(token) {
+  try {
+    const r = await h5Fetch("/tab-operating", { token });
+    const list = Array.isArray(r?.data?.operatingList) ? r.data.operatingList : [];
+    const seen = new Set();
+    const out = [];
+    for (const o of list) {
+      if (!o || !Array.isArray(o.subjects) || o.subjects.length === 0) continue;
+      const title = String(o.title || "").trim();
+      if (!title) continue;
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (!slug || seen.has(slug)) continue;
+      seen.add(slug);
+      out.push({ slug, title, count: o.subjects.length });
+    }
+    return out;
+  } catch (e) {
+    console.warn(`[sitemap] ranking groups failed: ${e.message}`);
+    return [];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // XML writers
 // ---------------------------------------------------------------------------
@@ -476,9 +517,10 @@ async function main() {
   const today = now.slice(0, 10);
 
   let titles = [];
+  let token = null;
   try {
     console.log("[sitemap] minting token…");
-    const token = await mintToken();
+    token = await mintToken();
     console.log("[sitemap] collecting catalogue…");
     const entries = await collectCatalogue(token);
     console.log(`[sitemap] ${entries.length} catalogue entries, resolving detail…`);
@@ -492,6 +534,12 @@ async function main() {
   }
 
   const genres = await collectGenrePages();
+  const rankingGroups = token ? await collectRankingPages(token) : [];
+  console.log(
+    `[sitemap] ${rankingGroups.length} ranking groups (${rankingGroups
+      .map((g) => g.slug)
+      .join(", ")})`,
+  );
 
   // ---- sitemap.xml -------------------------------------------------------
   const entries = [];
@@ -506,6 +554,11 @@ async function main() {
 
   for (const slug of BLOG_SLUGS) {
     entries.push(urlEntry(`/blog/${slug}`, today, "monthly", 0.6));
+  }
+
+  // One URL per ranking group.
+  for (const g of rankingGroups) {
+    entries.push(urlEntry(`/rankings/${g.slug}`, today, "daily", 0.75));
   }
 
   let episodeCount = 0;

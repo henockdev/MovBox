@@ -10,8 +10,19 @@ export const revalidate = 1800; // 30 min
 
 export const metadata: Metadata = pageSeo({
   path: "/trending",
-  title: "Trending",
-  description: "What's hot on Movbox right now.",
+  title: "Trending Movies & TV Shows This Week",
+  description:
+    "See what is trending on Movbox right now — the most-watched movies, the hottest new series and the latest releases. Updated every day, free in HD.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "trending movies",
+    "trending tv shows",
+    "popular movies",
+    "new releases",
+    "top rated",
+  ],
 });
 
 function toMediaCard(c: {
@@ -79,6 +90,7 @@ export default async function TrendingPage() {
           iconClassName="text-accent-bright"
           items={trendingMovies}
           seeAllHref="/movies"
+          priorityCount={4}
         />
         <TrendingRow
           title="Trending TV Shows"

@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { Footer } from "@/components/layout/Footer";
 import { SiteAds } from "@/components/ads/SiteAds";
+import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { SITE_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -91,6 +92,13 @@ export default function RootLayout({
       className={cn(inter.variable, cinzel.variable, "h-full antialiased")}
     >
       <body className="flex min-h-dvh flex-col bg-bg-deepest text-text-primary">
+        {/* llms.txt discovery. There is no standard robots.txt directive for
+            it, so the link tag in the document head is what tells an
+            assistant where the plain-text site summary lives.
+            https://llmstxt.org */}
+        <link rel="llms-txt" href="/llms.txt" />
+        {/* WebSite + Organization — the site-wide identity markup. */}
+        <SiteJsonLd />
         <Header />
         {/* movbox-has-socialbar-space keeps the last row of content clear of
             the fixed mobile nav AND the Adsterra social bar. Inert while

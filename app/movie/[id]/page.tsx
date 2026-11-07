@@ -4,7 +4,7 @@ import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
 import { MovieDetailView } from "@/components/detail/MovieDetailView";
 import { SITE_NAME } from "@/lib/constants";
 import { MovieJsonLd } from "@/components/seo/MovieJsonLd";
-import { detailCanonical, pageSeo } from "@/lib/seo";
+import { clampDescription, detailCanonical, pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -33,8 +33,9 @@ export async function generateMetadata({
   // route and asks not to be indexed, so the two URLs never compete for
   // the same keywords.
   const isTv = details.kind === "tv";
-  const description =
-    details.synopsis || `Watch ${details.title} on ${SITE_NAME}.`;
+  const description = clampDescription(
+    details.synopsis || `Watch ${details.title} on ${SITE_NAME}.`
+  );
 
   return pageSeo({
     path: `/movie/${encodeURIComponent(details.detailPath)}`,

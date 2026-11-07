@@ -8,9 +8,18 @@ import { pageSeo } from "@/lib/seo";
 
 export const metadata: Metadata = pageSeo({
   path: "/movbox-app",
-  title: "Movbox App — Coming Soon",
+  title: "Movbox Android App — Watch Free on Your Phone",
   description:
-    "The Movbox Android app is in development. Get notified when it launches.",
+    "The Movbox Android app is in development — the whole catalogue in your pocket, with the same free streaming, rankings and search you get on the web.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "movbox app",
+    "movbox android",
+    "movie streaming app",
+    "watch on phone",
+  ],
 });
 
 const FAQ_ITEMS = [

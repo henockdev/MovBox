@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
 import { MovieDetailView } from "@/components/detail/MovieDetailView";
 import { SITE_NAME } from "@/lib/constants";
-import { pageSeo } from "@/lib/seo";
+import { clampDescription, pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -37,8 +37,9 @@ export async function generateMetadata({
     path: `/movies/${encodeURIComponent(details.detailPath)}`,
     canonical: `/movie/${encodeURIComponent(details.detailPath)}`,
     title: details.title,
-    description:
-      details.synopsis || `Watch ${details.title} on ${SITE_NAME}.`,
+    description: clampDescription(
+      details.synopsis || `Watch ${details.title} on ${SITE_NAME}.`
+    ),
     type: "video.movie",
     image: details.backdropUrl ?? details.posterUrl,
     imageWidth: 1280,

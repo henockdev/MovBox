@@ -36,6 +36,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: cat.title,
     description: cat.description,
     keywords: cat.keywords,
+    // A category with no catalogue of its own is a signpost, not content.
+    // /category/live holds no titles — live channels are served by the
+    // upstream live hub — so it must not be indexed as if it were a page of
+    // them. It was an empty page in the site's own footer.
+    noindex: Boolean(cat.externalHub),
   });
 }
 
@@ -128,11 +133,12 @@ export default async function CategoryPage({ params }: PageProps) {
           </p>
         ) : (
           <div className="flex flex-col gap-8 sm:gap-10">
-            {sections.map((section) => (
+            {sections.map((section, index) => (
               <MovieRow
                 key={section.title}
                 title={section.title}
                 items={section.items}
+                priorityCount={index === 0 ? 4 : 0}
               />
             ))}
           </div>

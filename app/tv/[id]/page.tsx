@@ -4,7 +4,12 @@ import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
 import { TVDetailView } from "@/components/detail/TVDetailView";
 import { TVShowJsonLd } from "@/components/seo/MovieJsonLd";
 import { SITE_NAME } from "@/lib/constants";
-import { baseShowTitle, detailCanonical, pageSeo } from "@/lib/seo";
+import {
+  baseShowTitle,
+  clampDescription,
+  detailCanonical,
+  pageSeo,
+} from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -32,8 +37,9 @@ export async function generateMetadata({
   // canonical + noindex pair and a client-side redirect.
   const isMovie = details.kind === "movie";
   const show = baseShowTitle(details.title);
-  const description =
-    details.synopsis || `Watch ${show} on ${SITE_NAME}.`;
+  const description = clampDescription(
+    details.synopsis || `Watch ${show} on ${SITE_NAME}.`
+  );
 
   return pageSeo({
     path: `/tv/${encodeURIComponent(details.detailPath)}`,

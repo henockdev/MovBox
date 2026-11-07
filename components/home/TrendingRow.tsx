@@ -14,6 +14,12 @@ interface TrendingRowProps {
   iconClassName?: string;
   items: MediaCard[];
   seeAllHref?: string;
+  /**
+   * How many of the first cards load eagerly. Only the first row of a page
+   * should use it — every eager poster competes with the one that actually
+   * decides the Largest Contentful Paint.
+   */
+  priorityCount?: number;
 }
 
 const ICONS: Record<TrendingIconName, React.ElementType> = {
@@ -33,6 +39,7 @@ export function TrendingRow({
   iconClassName,
   items,
   seeAllHref,
+  priorityCount = 0,
 }: TrendingRowProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -93,7 +100,7 @@ export function TrendingRow({
             <MovieCard
               key={`${media.type}-${media.id}`}
               media={media}
-              priority={i < 4}
+              priority={i < priorityCount}
             />
           ))}
         </div>

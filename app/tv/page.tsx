@@ -11,9 +11,19 @@ export const revalidate = 300;
 
 export const metadata: Metadata = pageSeo({
   path: "/tv",
-  title: "TV Shows",
+  title: "Watch TV Series Online Free — Full Episodes in HD",
   description:
-    "Browse TV series by genre, country, year and language. Stream full episodes free on Movbox.",
+    "Stream full episodes of your favourite TV series free in HD. Filter by genre, country, year and language — K-dramas, C-dramas, anime, sitcoms and thrillers.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "watch tv series",
+    "free tv shows",
+    "full episodes",
+    "k-drama",
+    "anime series",
+  ],
 });
 
 export default async function TVPage() {

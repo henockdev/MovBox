@@ -9,8 +9,19 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = pageSeo({
   path: "/genres",
-  title: "Genres",
-  description: "Browse movies and TV shows by genre.",
+  title: "Browse by Genre — Action, Romance, Horror, Comedy & More",
+  description:
+    "Find your next watch by genre. Browse action, adventure, animation, comedy, crime, drama, horror, romance, sci-fi and thriller movies and series, free in HD.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "movies by genre",
+    "tv shows by genre",
+    "action movies",
+    "romance drama",
+    "horror movies",
+  ],
 });
 
 export default async function GenresPage() {

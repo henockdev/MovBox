@@ -11,6 +11,11 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Home" },
+  // The app's Trending tab and its ranking blocks. Both were app-only until
+  // now — they are the two entry points a visitor uses to find something to
+  // watch without searching, so they belong in the top bar.
+  { href: "/trending", label: "Trending" },
+  { href: "/rankings", label: "Rankings" },
   { href: "/movies", label: "Movies" },
   { href: "/tv", label: "TV Shows" },
   { href: "/animations", label: "Animations" },

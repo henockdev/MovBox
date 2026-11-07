@@ -10,8 +10,18 @@ export const revalidate = 1800;
 
 export const metadata: Metadata = pageSeo({
   path: "/most-watched",
-  title: "Most Watched",
-  description: "The most-watched titles on Movbox right now.",
+  title: "Most Watched Movies & TV Shows Right Now",
+  description:
+    "The most-watched movies and TV shows on Movbox, counted from real viewing across the catalogue. See what everybody is watching and stream it free in HD.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "most watched movies",
+    "popular tv shows",
+    "top streaming titles",
+    "box office hits",
+  ],
 });
 
 function toMediaCard(c: {

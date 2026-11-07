@@ -8,7 +8,7 @@ import { WatchJsonLd } from "@/components/seo/WatchJsonLd";
 import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
 import { toMediaCard } from "@/lib/adapters";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
-import { pageSeo } from "@/lib/seo";
+import { clampDescription, pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -30,8 +30,9 @@ export async function generateMetadata({
     });
   }
 
-  const description =
-    details.synopsis || `Stream ${details.title} on ${SITE_NAME}.`;
+  const description = clampDescription(
+    details.synopsis || `Stream ${details.title} on ${SITE_NAME}.`
+  );
 
   return pageSeo({
     path: `/watch/movie/${encodeURIComponent(details.detailPath)}`,

@@ -51,7 +51,7 @@ export const CATEGORIES: CategoryDef[] = [
     title: "Kids & Family",
     tagline: "Animation, cartoons and family favourites for the little ones.",
     description:
-      "Stream kids movies, animated series, cartoons and family films free on Movbox. CoComelon, Doraemon, folktales, anime for younger viewers and more, updated daily.",
+      "Stream kids movies, animated series, cartoons and family films free on Movbox. CoComelon, Doraemon, folktales and anime for younger viewers, updated daily.",
     keywords: [
       "kids movies",
       "cartoon",
@@ -103,7 +103,7 @@ export const CATEGORIES: CategoryDef[] = [
     title: "Western",
     tagline: "Cowboys, outlaws and the open frontier.",
     description:
-      "Stream classic and modern Westerns free on Movbox — Dances with Wolves, Cast a Long Shadow, Wild Boys, Gold Diggers and more. Full-length feature films and series.",
+      "Stream classic and modern Westerns free on Movbox — Dances with Wolves, Cast a Long Shadow, Wild Boys and more. Full-length feature films and series.",
     keywords: [
       "western movies",
       "cowboy films",

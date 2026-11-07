@@ -9,6 +9,86 @@
 
 ---
 
+## ⚠️ CURRENT STATE (2026-11-06) — read this first
+
+The sections below were written on 2026-08-27 and are **stale in two ways**.
+This block overrides them.
+
+| Stale text says | Reality now |
+|---|---|
+| Repo is `C:\projects\HMovies` | Repo is `C:\projects\learn\android-app-investigation\websites\movbox`, on GitHub at `https://github.com/henockdev/MovBox`, branch `main`. It **is** deployed and live at `movbox.xyz` on **Vercel** — not on Oracle Cloud. |
+| "Deploy to Oracle Cloud Always Free" is the next step | That did not happen. Vercel is the production host. The deploy is a `git push` to `main`. |
+| `boxmovies-api` is the backend | It is gone. The site calls `h5-api.aoneroom.com/wefeed-h5api-bff` directly from `lib/data.ts`, with a signed mobile-BFF path (`api6.aoneroom.com`) and a DigitalOcean stream relay as fallbacks. |
+
+### The SEO / GEO recalibration (2026-11-06)
+
+The owner reported *"since you edited it you ruined the SEO — no impressions and
+clicks"*. Five real defects were found and fixed. **Read
+[`docs/SEO-RECALIBRATION.md`](./SEO-RECALIBRATION.md) before touching metadata
+again** — it has the before/after measurements, the reasoning, and the
+regression scripts.
+
+The one that mattered: `lib/data.ts` minted its bearer token with
+`cache: "no-store"` and every catalogue fetch carried an `AbortSignal`. Both
+opt a Next.js route out of static rendering, so **every page on the site was
+served `private, no-cache, no-store` and re-rendered from scratch on every
+request** — 3.7 s for the homepage, 5.5 s for `/most-watched`, across a
+24 592-URL sitemap. The fix is `next: { revalidate }` on the fetches and a
+promise race (`withTimeout`) for the timeout instead of an abort.
+
+**Never reintroduce `cache: "no-store"` or an `AbortSignal` on a catalogue
+fetch.** That is the single regression that kills the crawl.
+
+### The subtitle bug (2026-11-06)
+
+*"It lists the available subtitle but not rendering them."*
+
+The feed was never broken — `/api/subtitle-proxy` returns valid WebVTT for
+every language (verified: 7/7 tracks, `200`, `text/vtt`, cues present). The
+bug was a **race in `components/player/Player.tsx`**.
+
+The player sets `textTracks[i].mode = "showing"` the moment it creates the
+`<track>` elements — but the cues do not exist yet. The proxy has to pull the
+`.srt` off the upstream CDN first, and that takes seconds. When the track
+finally loads, Chrome re-runs its automatic text-track selection and can put
+the track back to `disabled`. Result: the language menu listed seven
+subtitles and none of them ever appeared.
+
+The code even had a comment promising a `load` listener that was never
+registered. The fix registers it, and keeps the player's hook count fixed
+(the component has a note about a cached-chunk crash) by sharing the current
+intent through a module-level `WeakMap` rather than adding a ref.
+
+**Apply when:** touching the player's text-track handling. If subtitles stop
+appearing, check that the `load` handler on each `<track>` is still calling
+`applySubtitleModes`.
+
+### Regression suite
+
+```
+node scripts/seo-structure-check.mjs http://localhost:3210   # must print: PROBLEMS: none
+node scripts/seo-probe.mjs http://localhost:3210
+node scripts/seo-homepage-weight.mjs http://localhost:3210
+```
+
+Run them against a local production build (`npx next build && npx next start
+-p 3210`), not only against the live site.
+
+### Metadata rules (violated once already)
+
+- The root layout sets `title.template = "%s | Movbox"`. **Do not put `| Movbox`
+  in a `title`** — it renders as `… | Movbox | Movbox`. `lib/seo.ts` documents this.
+- Meta descriptions belong in the **120–160 character** band. Below 120 Google
+  rewrites them; above 160 it truncates mid-word. `clampDescription()` in
+  `lib/seo.ts` handles the upstream synopses on the detail pages.
+- Every indexable route needs: a title ≤ 65 chars, a description in the band,
+  a self-canonical, an `og:url` matching it, exactly one `<h1>`, and JSON-LD.
+- The site's identity markup (`WebSite` + `Organization` + `SearchAction`) is
+  in `components/seo/SiteJsonLd.tsx` and is mounted in the root layout — it
+  belongs on every page.
+
+---
+
 ## What Movbox is
 
 A free, ad-supported streaming site that wraps **boxmovies.org** with our own **luxury, premium UI**. Burgundy-led cinematic dark theme — colors are user-approved and **must NOT change** ("bro dont change the colors i love them").

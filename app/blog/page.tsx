@@ -7,9 +7,19 @@ import { pageSeo } from "@/lib/seo";
 
 export const metadata: Metadata = pageSeo({
   path: "/blog",
-  title: "Blog",
+  title: "Movbox Blog — Movie News, Guides & K-Drama Picks",
   description:
-    "News, guides, and editor's picks from the Movbox team. K-dramas, 4K streaming, the best of the catalog — all free.",
+    "News, guides and editor's picks from the Movbox team: what to watch this week, how to find the best 4K content and the best K-dramas of 2026.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "movbox blog",
+    "movie news",
+    "streaming guide",
+    "best k-drama",
+    "4k streaming",
+  ],
 });
 
 function formatDate(iso: string) {

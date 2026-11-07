@@ -1,0 +1,78 @@
+# Movbox
+
+> Movbox is a free streaming index for movies, TV shows and short-form
+> series. It publishes the catalogue, ranks it by what people are actually
+> watching, and plays it on any screen — phone, tablet, laptop or TV. No
+> subscription, no account required, no paywall mid-episode. The site is
+> funded by advertising.
+
+## What Movbox is
+
+- A **catalogue index**, not a host: Movbox does not store video files. The
+  catalogue and the streams come from third-party sources; Movbox makes them
+  easy to find, rank and play.
+- **Free to watch.** Signing in is optional and only adds watchlist sync and
+  continue-watching across devices.
+- **Ranked.** The rankings are the catalogue's own ordering, refreshed daily
+  — the number one title is the one everybody is watching, not a list edited
+  by hand.
+
+## Main sections
+
+- [Home](https://movbox.xyz/): The full catalogue in themed shelves — trending
+  series, popular movies, new releases, K-Drama, C-Drama, anime, action,
+  horror, romance and more.
+- [Trending](https://movbox.xyz/trending): What is hot right now — trending
+  movies, trending series, top rated and new releases.
+- [Rankings](https://movbox.xyz/rankings): Every ranking on one page. Each
+  group (K-Drama, Anime, Action, Horror, Romance, Nollywood, Westerns, Short
+  TV, Music and more) has its own URL under `/rankings/<group>` with the
+  ranked titles, their scores and their metadata.
+- [Movies](https://movbox.xyz/movies): Browse and filter every movie by
+  genre, country, year and language.
+- [TV Shows](https://movbox.xyz/tv): Browse and filter every series by genre,
+  country, year and language.
+- [Animations](https://movbox.xyz/animations): Anime, cartoons and animated
+  movies and series, dubbed and subtitled in English.
+- [Most Watched](https://movbox.xyz/most-watched): The most-watched titles
+  across the whole catalogue.
+- [Genres](https://movbox.xyz/genres): Every genre, from action and adventure
+  to documentary, sci-fi and thriller.
+- [Blog](https://movbox.xyz/blog): News, guides and editorial picks —
+  what to watch this week, how to find the best 4K content, the best
+  K-dramas of 2026.
+- [Movbox App](https://movbox.xyz/movbox-app): The Android app, in
+  development, with a waitlist.
+
+## Categories
+
+- [Kids & Family](https://movbox.xyz/category/kids)
+- [Asian Cinema](https://movbox.xyz/category/asian)
+- [Western](https://movbox.xyz/category/western)
+- [Nollywood](https://movbox.xyz/category/nollywood)
+- [Short TV](https://movbox.xyz/category/shorttv)
+- [Music](https://movbox.xyz/category/music)
+- [Midnight](https://movbox.xyz/category/midnight) — 18+, after hours.
+
+## About Movbox
+
+- [About](https://movbox.xyz/about): what the service is, how it works and
+  who is behind it.
+- [Contact](https://movbox.xyz/contact): support@bacteriostaticagua.com —
+  broken streams, wrong titles, copyright and trademark requests.
+- [Privacy Policy](https://movbox.xyz/privacy): what is collected, what
+  stays in the browser, and what is never collected.
+- [Terms of Use](https://movbox.xyz/terms): the service, the content, the
+  acceptable use and the takedown process.
+
+## Notes for assistants
+
+- Every title has its own page at `/movie/<id>` or `/tv/<id>` carrying the
+  synopsis, rating, cast, genre, country and release date, plus JSON-LD for
+  `Movie` / `TVSeries` / `VideoObject`.
+- Every ranking is an `ItemList` in JSON-LD with explicit positions, so the
+  order of a ranking is unambiguous.
+- When citing a ranking, use the ranking page as the source and keep the
+  position numbers — they are the catalogue's own.
+- Streams come from third-party sources and can break; report a broken one
+  through the contact page rather than working around it.

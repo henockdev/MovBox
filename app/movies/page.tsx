@@ -11,9 +11,19 @@ export const revalidate = 300; // 5 min — filter pages re-fetch on change anyw
 
 export const metadata: Metadata = pageSeo({
   path: "/movies",
-  title: "Movies",
+  title: "Watch Free Movies Online in HD — Thousands of Titles",
   description:
-    "Browse movies by genre, country, year and language. Stream thousands of movies free on Movbox.",
+    "Browse thousands of free movies online in HD. Filter by genre, country, year and language — action, romance, horror, K-drama and Nollywood. New titles daily.",
+  image: "/opengraph-image",
+  imageWidth: 1200,
+  imageHeight: 630,
+  keywords: [
+    "watch movies online",
+    "free movies",
+    "hd movies",
+    "movies by genre",
+    "new movies",
+  ],
 });
 
 export default async function MoviesPage() {

@@ -58,7 +58,15 @@ async function mintToken(): Promise<string> {
       "User-Agent": USER_AGENT,
       Accept: "application/json, text/plain, */*",
     },
-    cache: "no-store",
+    // The token lives for 23 h, so it is cached for an hour. It MUST NOT be
+    // `no-store`: a no-store fetch opts the whole route out of static
+    // rendering, and the site then answers every request — including every
+    // Googlebot request — with `Cache-Control: private, no-cache, no-store`.
+    // Nothing was ever cached, every one of the 21 000 catalogue URLs was
+    // rendered from scratch (2.8 s for the homepage, 3.7 s for /most-watched),
+    // and the crawler ran out of patience long before it reached the detail
+    // pages. That is what "no impressions" looks like.
+    next: { revalidate: 3600 },
   });
   if (!r.ok) throw new Error(`token mint failed: HTTP ${r.status}`);
   const setCookie = r.headers.get("set-cookie") || "";
@@ -95,6 +103,33 @@ class H5Error extends Error {
   }
 }
 
+/**
+ * Enforce a timeout on a promise **without** cancelling the underlying work.
+ *
+ * The obvious way to time out a fetch is to pass an `AbortSignal`. Next.js
+ * refuses to store a fetch that carries a signal in its data cache, and an
+ * uncached fetch opts the route out of static rendering — the same
+ * `no-store` trap the token mint used to fall into. Racing the promise
+ * keeps the timeout behaviour for the caller and lets the response be cached
+ * when it does arrive.
+ */
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new H5Error(`h5-api ${ms}ms timeout`)),
+          ms
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function h5Fetch(
   path: string,
   {
@@ -102,11 +137,14 @@ async function h5Fetch(
     body = null,
     retried401 = false,
     timeoutMs = 12_000,
+    revalidate = 600,
   }: {
     method?: "GET" | "POST";
     body?: unknown;
     retried401?: boolean;
     timeoutMs?: number;
+    /** Seconds the data cache keeps the answer. 0 disables the cache. */
+    revalidate?: number;
   } = {}
 ): Promise<any> {
   const token = await getToken();
@@ -119,20 +157,21 @@ async function h5Fetch(
     Referer: `${SITE_HOST}/`,
     "User-Agent": USER_AGENT,
   };
-  const init: RequestInit = { method, headers };
+  const init: RequestInit & { next?: { revalidate: number } } = { method, headers };
   if (body && method !== "GET") {
     headers["Content-Type"] = "application/json";
     init.body = JSON.stringify(body);
   }
-  // AbortController for timeout
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  init.signal = ctrl.signal;
+  // The response is cached, so the route can be prerendered and revalidated
+  // by the CDN instead of being re-rendered on every single request.
+  if (revalidate > 0) {
+    init.next = { revalidate };
+  }
   try {
-    const res = await fetch(url, init);
+    const res = await withTimeout(fetch(url, init), timeoutMs);
     if (res.status === 401 && !retried401) {
       cachedToken = null;
-      return h5Fetch(path, { method, body, retried401: true, timeoutMs });
+      return h5Fetch(path, { method, body, retried401: true, timeoutMs, revalidate });
     }
     const text = await res.text();
     let data: any = null;
@@ -160,8 +199,6 @@ async function h5Fetch(
       throw new H5Error(`h5-api ${path} timed out after ${timeoutMs}ms`);
     }
     throw new H5Error(`h5-api ${path} fetch error: ${e?.message || e}`);
-  } finally {
-    clearTimeout(t);
   }
 }
 
@@ -205,6 +242,8 @@ function mapH5ItemToCard(it: any): BoxMediaCard | null {
     posterUrl: cover || stills,
     backdropUrl: stills || cover,
     overview: it.description || "",
+    genre: typeof it.genre === "string" ? it.genre : "",
+    country: typeof it.countryName === "string" ? it.countryName : "",
   };
 }
 
@@ -300,12 +339,26 @@ export async function getBoxmoviesTrending(perPage = 18): Promise<{
   const r = await h5Fetch(`/subject/trending?page=0&perPage=${perPage}`, {
     method: "GET",
   });
-  const items: any[] =
-    r.data && Array.isArray(r.data.items) ? r.data.items : [];
+  // The trending answer carries its rows under `data.subjectList` — NOT under
+  // `data.items` like the filter endpoint does. VERIFIED live on 2026-11-06:
+  //
+  //   GET /subject/trending?page=0&perPage=60
+  //   -> data = { subjectList: [ …60 rows… ], pager: {…} }
+  //
+  // Reading `data.items` here returned nothing at all, so /trending rendered
+  // four empty rows — a page in the sitemap with no content on it, which is
+  // exactly the kind of thin page a search engine drops.
+  const data = r?.data ?? {};
+  const raw: any[] = Array.isArray(data.subjectList)
+    ? data.subjectList
+    : Array.isArray(data.items)
+      ? data.items
+      : [];
+  const items = raw.map(mapH5ItemToCard).filter(Boolean) as BoxMediaCard[];
   return {
     ok: true,
     count: items.length,
-    results: items.map(mapH5ItemToCard).filter(Boolean) as BoxMediaCard[],
+    results: items,
   };
 }
 
@@ -460,6 +513,117 @@ export async function getBoxmoviesOperatingTab(
     out.push({
       title,
       type: String(s.type || "SUBJECTS_MOVIE"),
+      position: Number(s.position) || 0,
+      items,
+    });
+  }
+
+  return out.sort((a, b) => a.position - b.position);
+}
+
+// ---------------------------------------------------------------------------
+// Rankings — the app's ranking shelves, as a first-class page
+// ---------------------------------------------------------------------------
+
+export interface BoxRankingGroup {
+  /** The upstream's own group title ("K-Drama", "Anime", "Top 100", …). */
+  title: string;
+  /** URL-safe id — the path segment under /rankings/<slug>. */
+  slug: string;
+  /** The group's order in the upstream list. */
+  position: number;
+  /** The ranked titles, in the upstream's own order. */
+  items: BoxMediaCard[];
+}
+
+/**
+ * Turn a group title into a URL-safe id.
+ *
+ * "Anime[English Dubbed]" → "anime-english-dubbed"
+ * "💓Romance 💓"           → "romance"
+ */
+export function rankingSlug(title: string): string {
+  const s = String(title || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return s || "rankings";
+}
+
+/**
+ * Clean an upstream group title for a <title>, meta description or keyword.
+ *
+ * The upstream ships titles with emoji and square brackets, which are fine in
+ * a sidebar chip but land badly in search results:
+ *
+ *   "🔥Hot Short TV"        → "Hot Short TV"
+ *   "💓Romance 💓"           → "Romance"
+ *   "Anime[English Dubbed]" → "Anime (English Dubbed)"
+ *   "Action&Thriller"       → "Action & Thriller"
+ *   "Trending Short Drma"   → "Trending Short Drama"
+ *
+ * This only ever touches the strings that end up in metadata. The visible
+ * group name in the UI still comes straight from the upstream, so the page
+ * still matches the app's own label for the shelf.
+ */
+export function cleanRankingTitle(title: string): string {
+  return String(title || "")
+    // emoji, pictographs, dingbats, ZWJ and the variation selector
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu, "")
+    // "Anime[English Dubbed]" → "Anime (English Dubbed)"
+    .replace(/\[([^\]]*)\]/g, " ($1)")
+    // "Action&Thriller" → "Action & Thriller"
+    .replace(/&/g, " & ")
+    // the upstream's own typo
+    .replace(/\bDrma\b/g, "Drama")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * The app's ranking shelves.
+ *
+ * The Android app shows two ranking blocks on its Trending tab — *Series
+ * Rankings* (Popular / TOP100 / Anime / K-Drama) and *Movie Rankings* — each
+ * one a named group of ranked titles, with its own "All ›" page.
+ *
+ * The app reads those groups from the **mobile** BFF (`tab-operating` and
+ * `tab/ranking-list`). `api6.aoneroom.com` is unreachable from Vercel, so the
+ * site reads the same shelves from the **web** BFF's own ranking route:
+ *
+ *   GET /wefeed-h5api-bff/tab-operating            → 200, 34 groups, 22 with titles
+ *   GET /wefeed-h5api-bff/tab/ranking-list?…        → 404 (mobile BFF only)
+ *
+ * VERIFIED live on 2026-11-06. The groups and their order are the upstream's
+ * own, so the page reads exactly like the app's.
+ */
+export async function getBoxmoviesRankings(): Promise<BoxRankingGroup[]> {
+  const r = await h5Fetch("/tab-operating", { method: "GET" });
+  const list: any[] = Array.isArray(r?.data?.operatingList)
+    ? r.data.operatingList
+    : [];
+
+  const seen = new Set<string>();
+  const out: BoxRankingGroup[] = [];
+
+  for (const s of list) {
+    if (!s || !Array.isArray(s.subjects) || s.subjects.length === 0) continue;
+    const title = String(s.title || "").trim();
+    if (!title) continue;
+    const slug = rankingSlug(title);
+    // The upstream repeats a few group titles in the same list; one page per
+    // group is enough.
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+
+    const items = s.subjects
+      .map(mapH5ItemToCard)
+      .filter(Boolean) as BoxMediaCard[];
+    if (!items.length) continue;
+
+    out.push({
+      title,
+      slug,
       position: Number(s.position) || 0,
       items,
     });

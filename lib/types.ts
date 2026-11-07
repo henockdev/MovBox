@@ -71,6 +71,10 @@ export interface BoxMediaCard {
   posterUrl: string | null;
   backdropUrl: string | null;
   overview: string;
+  /** The upstream's genre string, e.g. "Crime,Drama,Fantasy". */
+  genre?: string;
+  /** The upstream's country name, e.g. "United States". */
+  country?: string;
 }
 
 /** Full detail page metadata. */

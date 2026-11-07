@@ -8,8 +8,11 @@ const COLUMNS = [
     links: [
       { href: "/movies", label: "Movies" },
       { href: "/tv", label: "TV Shows" },
+      { href: "/animations", label: "Animations" },
       { href: "/genres", label: "Genres" },
       { href: "/trending", label: "Trending" },
+      { href: "/rankings", label: "Rankings" },
+      { href: "/most-watched", label: "Most Watched" },
       { href: "/movbox-app", label: "Movbox App" },
     ],
   },
@@ -26,7 +29,9 @@ const COLUMNS = [
       { href: "/login", label: "Sign In" },
       { href: "/signup", label: "Create Account" },
       { href: "/watchlist", label: "My List" },
-      { href: "/account", label: "Settings" },
+      // The account page is /profile — the footer used to point at /account,
+      // which does not exist and answered 404 on every page of the site.
+      { href: "/profile", label: "Settings" },
     ],
   },
   {
