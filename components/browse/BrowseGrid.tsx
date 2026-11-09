@@ -80,16 +80,20 @@ export function BrowseGrid({
 
   return (
     <div>
-      {(title || totalCount != null) && (
+      {(title || page > 0) && (
         <div className="mb-4 flex items-end justify-between gap-3">
           {title && (
             <h2 className="text-lg font-bold text-cream sm:text-xl">{title}</h2>
           )}
-          {totalCount != null && (
-            <div className="text-[11px] text-zinc-500">
-              {totalCount.toLocaleString()} titles
-            </div>
-          )}
+          {/* The upstream's `totalCount` is a placeholder (1000000), not a
+              real catalogue size, so it is never shown as a title count.
+              The page number is the honest number here. */}
+          <div className="text-[11px] text-zinc-500">
+            Page {page}
+            {totalCount != null && totalCount < 100000
+              ? ` of ${Math.max(1, Math.ceil(totalCount / Math.max(1, items.length || 1)))}`
+              : ""}
+          </div>
         </div>
       )}
 

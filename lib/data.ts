@@ -21,6 +21,7 @@
 import type {
   BoxCaption,
   BoxDetail,
+  BoxHeroSlide,
   BoxMediaCard,
   BoxSource,
   BoxSourceGroup,
@@ -248,6 +249,77 @@ function mapH5ItemToCard(it: any): BoxMediaCard | null {
 }
 
 // ---------------------------------------------------------------------------
+// The hero banner
+// ---------------------------------------------------------------------------
+
+/**
+ * The upstream's hero banner, mapped to slides.
+ *
+ * The Android app opens on its Trending tab, and the first thing on that tab
+ * is a full-bleed 16:9 banner that auto-advances, with a compact strip of the
+ * same slides directly underneath. That banner is the `BANNER` entry of the
+ * operating list:
+ *
+ *   { type: "BANNER", title: "Banner_Africa",
+ *     banner: { items: [ { image: { url, width, height }, subject: { … } } ] } }
+ *
+ * The web BFF keeps the slides under `banner.items` and the mobile BFF under
+ * `banner.banners`, so both spellings are read — the shape differs between the
+ * two upstreams but the meaning does not.
+ *
+ * A slide with no artwork at all cannot be shown as a banner. One that has a
+ * poster but no wide image keeps its poster as the image, so the hero is never
+ * blank.
+ */
+export function mapBannerToHeroSlides(entry: any): BoxHeroSlide[] {
+  const slides =
+    entry?.banner?.items ?? entry?.banner?.banners ?? entry?.banners ?? [];
+  if (!Array.isArray(slides)) return [];
+
+  const out: BoxHeroSlide[] = [];
+  const seen = new Set<string>();
+
+  for (const it of slides) {
+    if (!it || typeof it !== "object") continue;
+    const subject =
+      it.subject && typeof it.subject === "object" ? it.subject : null;
+    const detailPath = String(it.detailPath || subject?.detailPath || "").trim();
+    if (!detailPath) continue;
+
+    const subjectId = String(it.subjectId || subject?.subjectId || "").trim();
+    const key = subjectId || detailPath;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const bannerUrl =
+      (typeof it.image?.url === "string" && it.image.url) ||
+      (typeof it.imageUrl === "string" && it.imageUrl) ||
+      null;
+    const posterUrl =
+      (typeof subject?.cover?.url === "string" && subject.cover.url) || null;
+
+    out.push({
+      subjectId: key,
+      detailPath,
+      // subjectType 2 is a series; everything else is a movie.
+      type:
+        it.subjectType === 2 || subject?.subjectType === 2 ? "tv" : "movie",
+      title: String(it.title || subject?.title || detailPath),
+      bannerUrl,
+      posterUrl,
+      year: String(subject?.releaseDate ?? subject?.year ?? "").slice(0, 4),
+      genre: String(subject?.genre ?? "").trim(),
+      country: String(subject?.countryName ?? "").trim(),
+      rating: String(subject?.imdbRatingValue ?? "").trim(),
+    });
+  }
+
+  return out
+    .filter((s) => s.bannerUrl || s.posterUrl)
+    .map((s) => ({ ...s, bannerUrl: s.bannerUrl ?? s.posterUrl }));
+}
+
+// ---------------------------------------------------------------------------
 // Home — boxmovies.org's themed home sections + hero pool
 // ---------------------------------------------------------------------------
 
@@ -280,6 +352,14 @@ export interface BoxHomeSection {
 export interface BoxHomeEnvelope {
   sections: BoxHomeSection[];
   hero: BoxMediaCard[];
+  /**
+   * The app's hero banner slides.
+   *
+   * These come out of the `BANNER` block of the SAME `/home` response — the
+   * home feed was already carrying the artwork and the site was throwing it
+   * away, so the hero costs no extra upstream call.
+   */
+  heroSlides: BoxHeroSlide[];
   count: number;
 }
 
@@ -302,6 +382,11 @@ export async function getBoxmoviesHome(): Promise<BoxHomeEnvelope> {
     }))
     .filter((s) => s.items.length > 0);
 
+  // The app's hero: the `BANNER` block of the very same response.
+  const bannerEntry = operating.find((o) => o?.type === "BANNER");
+  const heroSlides = mapBannerToHeroSlides(bannerEntry);
+
+  // Poster fallback, used only when the upstream ships no banner at all.
   // Hero pool: first few items from "Popular Series" and "Popular Movie".
   const heroPool: BoxMediaCard[] = [];
   const popularSeries = cleaned.find((s) => s.title === "Popular Series");
@@ -323,6 +408,7 @@ export async function getBoxmoviesHome(): Promise<BoxHomeEnvelope> {
   return {
     sections: cleaned,
     hero,
+    heroSlides,
     count: cleaned.length,
   };
 }
@@ -330,6 +416,30 @@ export async function getBoxmoviesHome(): Promise<BoxHomeEnvelope> {
 // ---------------------------------------------------------------------------
 // Trending
 // ---------------------------------------------------------------------------
+
+/**
+ * The hero banner of one of the app's tabs.
+ *
+ * The app opens on its Trending tab, and the mobile BFF serves that tab under
+ * tabId 1. `api6.aoneroom.com` answers 440 from Vercel, so the site reads the
+ * same banner from the **web** BFF's Movie tab — whose first content row is
+ * the upstream's own "Trending Movie" shelf, i.e. the web-BFF equivalent of
+ * the app's Trending tab.
+ *
+ * VERIFIED live on 2026-11-09: `/tab-operating?tabId=2` carries a `BANNER`
+ * block with 14 slides (1920x1080 and wider artwork), and the tab's first
+ * content section is literally titled "Trending Movie".
+ */
+export async function getBoxmoviesHeroBanner(
+  tabId = 2
+): Promise<BoxHeroSlide[]> {
+  const r = await h5Fetch(`/tab-operating?tabId=${tabId}`, { method: "GET" });
+  const list: any[] = Array.isArray(r?.data?.operatingList)
+    ? r.data.operatingList
+    : [];
+  const bannerEntry = list.find((o) => o?.type === "BANNER");
+  return mapBannerToHeroSlides(bannerEntry);
+}
 
 export async function getBoxmoviesTrending(perPage = 18): Promise<{
   ok: boolean;
@@ -438,16 +548,40 @@ export async function getBoxmoviesBrowse(
   });
   const items: any[] =
     r.data && Array.isArray(r.data.items) ? r.data.items : [];
+
+  // The pagination lives in `data.pager`, NOT at the top level of `data`.
+  //
+  // VERIFIED live on 2026-11-09: /subject/filter answers with
+  //   data: { pager: { hasMore, nextPage, page, perPage, totalCount }, items: [...] }
+  // and nothing else. The site used to read `data.hasMore` / `data.totalCount` /
+  // `data.nextPage`, which are always undefined — so `hasMore` was always
+  // false, every browse grid stopped after the first 28 titles and showed
+  // "You've reached the end." while thousands more were still available.
+  //
+  // `items.length` cannot be used as the fallback either: the upstream
+  // regularly answers a perPage=28 request with 27 items while still saying
+  // hasMore=true, so a length check would end the list a page early.
+  const pager: any = (r.data && r.data.pager) || {};
+  const hasMore =
+    pager.hasMore != null
+      ? !!pager.hasMore
+      : items.length >= perPage && items.length > 0;
+  const nextPage =
+    pager.nextPage != null
+      ? Number(pager.nextPage) || null
+      : hasMore
+        ? page + 1
+        : null;
+  const totalCount =
+    pager.totalCount != null ? Number(pager.totalCount) : null;
+
   return {
     items: items.map(mapH5ItemToCard).filter(Boolean) as BoxMediaCard[],
-    hasMore: !!(r.data && r.data.hasMore),
-    nextPage:
-      r.data && r.data.nextPage != null
-        ? Number(r.data.nextPage) || null
-        : null,
-    totalCount: r.data && r.data.totalCount != null ? r.data.totalCount : null,
-    page,
-    perPage,
+    hasMore,
+    nextPage,
+    totalCount,
+    page: pager.page != null ? Number(pager.page) || page : page,
+    perPage: pager.perPage != null ? Number(pager.perPage) || perPage : perPage,
     channelId,
     filters: {
       genre: isAll(filters.genre) ? null : filters.genre ?? null,

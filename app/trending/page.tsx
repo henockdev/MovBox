@@ -1,7 +1,8 @@
 ﻿import type { Metadata } from "next";
 import { Flame } from "lucide-react";
 import { TrendingRow } from "@/components/home/TrendingRow";
-import { getBoxmoviesTrending } from "@/lib/data";
+import { HeroBanner, type HeroBannerSlide } from "@/components/home/HeroBanner";
+import { getBoxmoviesHeroBanner, getBoxmoviesTrending } from "@/lib/data";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { pageSeo } from "@/lib/seo";
 import type { MediaCard } from "@/lib/types";
@@ -52,6 +53,19 @@ export default async function TrendingPage() {
   const trend = await getBoxmoviesTrending(60).catch(() => ({ results: [] }));
   const all = (trend.results ?? []).map(toMediaCard);
 
+  // The app's Trending tab opens on a full-bleed 16:9 banner that advances on
+  // its own. Same hero as the homepage, fed by the upstream's own banner block
+  // for this tab.
+  const banner = await getBoxmoviesHeroBanner().catch(() => []);
+  const heroSlides: HeroBannerSlide[] = banner.map((s) => ({
+    href: `/${s.type}/${encodeURIComponent(s.detailPath)}`,
+    title: s.title,
+    imageUrl: s.bannerUrl,
+    meta: [s.year, s.genre.replace(/,/g, ", ")]
+      .filter(Boolean)
+      .join(" | "),
+  }));
+
   const trendingMovies = all.filter((m) => m.type === "movie").slice(0, 18);
   const trendingTV = all.filter((m) => m.type === "tv").slice(0, 18);
   const topRated = [...all]
@@ -64,7 +78,12 @@ export default async function TrendingPage() {
     .slice(0, 18);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-16 pt-24 md:px-6 lg:px-8">
+    <>
+      {heroSlides.length ? (
+        <HeroBanner slides={heroSlides} headingLevel="h2" />
+      ) : null}
+
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 md:px-6 lg:px-8">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", path: "/" },
@@ -111,7 +130,8 @@ export default async function TrendingPage() {
           iconClassName="text-vanilla"
           items={newReleases}
         />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { HeroBanner, type HeroBannerSlide } from "@/components/home/HeroBanner";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
 import { HeroSlideStrip } from "@/components/home/HeroSlideStrip";
 import { CategoryChips } from "@/components/home/CategoryChips";
@@ -82,10 +83,39 @@ export default async function HomePage() {
   const home = await getBoxmoviesHome().catch(() => ({
     sections: [],
     hero: [],
+    heroSlides: [],
     count: 0,
   }));
 
   const hero: MediaCard[] = home.hero.map(toMediaCard);
+
+  // The app's hero: the `BANNER` block of the same /home response. The
+  // upstream ships the wide 16:9 artwork plus the subject it belongs to, and
+  // the app renders that as a full-bleed pager that advances on its own.
+  const heroSlides: HeroBannerSlide[] = home.heroSlides.map((s) => ({
+    href: `/${s.type}/${encodeURIComponent(s.detailPath)}`,
+    title: s.title,
+    imageUrl: s.bannerUrl,
+    meta: [s.year, s.genre.replace(/,/g, ", ")]
+      .filter(Boolean)
+      .join(" | "),
+  }));
+
+  // The strip under the hero shows the SAME slides as the banner, exactly like
+  // the app does — the poster is the thumbnail, the subline is "year | genre".
+  const stripItems: MediaCard[] = home.heroSlides.map((s) => ({
+    id: s.detailPath,
+    type: s.type,
+    title: s.title,
+    year: s.year,
+    rating: Number(s.rating) || 0,
+    posterPath: s.posterUrl,
+    backdropPath: s.bannerUrl,
+    overview: "",
+    subline: [s.year, s.genre.replace(/,/g, ", ")]
+      .filter(Boolean)
+      .join(" | "),
+  }));
 
   // Filter + dedupe sections
   const seenItemSets = new Set<string>();
@@ -125,15 +155,21 @@ export default async function HomePage() {
         />
       ) : null}
 
-      {/* Hero */}
-      <HeroCarousel items={hero} />
+      {/* Hero — the app's Trending banner: a full-bleed 16:9 pager that
+          advances on its own. The poster carousel stays as the fallback for
+          the (rare) case where the upstream ships no banner block. */}
+      {heroSlides.length ? (
+        <HeroBanner slides={heroSlides} />
+      ) : (
+        <HeroCarousel items={hero} />
+      )}
 
       {/* The compact scrollable strip of hero titles, directly under the
           banner — the original app renders the same slides a second time
           here as thin cards, and it is the app's main horizontal-scroll
           gesture on a phone. */}
       <div className="pt-3 sm:pt-4">
-        <HeroSlideStrip items={hero} />
+        <HeroSlideStrip items={stripItems.length ? stripItems : hero} />
       </div>
 
       {/* The shelves the app has and the site did not. */}

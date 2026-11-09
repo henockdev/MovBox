@@ -77,6 +77,32 @@ export interface BoxMediaCard {
   country?: string;
 }
 
+/**
+ * One slide of the hero banner.
+ *
+ * The upstream ships this as the `BANNER` entry of an operating list: a wide
+ * 16:9 artwork plus the subject it belongs to. The Android app renders it as a
+ * full-bleed pager that auto-advances, with a compact strip of the same slides
+ * directly underneath.
+ *
+ * The wide artwork and the portrait poster are two different fields, so both
+ * are carried here — the banner uses one, the strip thumbnail the other.
+ */
+export interface BoxHeroSlide {
+  subjectId: string;
+  detailPath: string;
+  type: "movie" | "tv";
+  title: string;
+  /** The 16:9 banner artwork. */
+  bannerUrl: string | null;
+  /** The portrait poster, used as the strip thumbnail. */
+  posterUrl: string | null;
+  year: string;
+  genre: string;
+  country: string;
+  rating: string;
+}
+
 /** Full detail page metadata. */
 export interface BoxDetail {
   detailPath: string;
@@ -175,6 +201,13 @@ export interface MediaCard {
   backdropPath: string | null;
   overview: string;
   runtime?: number | null;
+  /**
+   * An optional pre-built meta line, e.g. "2026 | Action".
+   *
+   * The hero strip shows this instead of the "year · Movie" line it falls
+   * back to, because the app's own strip shows the title's genres.
+   */
+  subline?: string;
 }
 
 /** Available filter axes for /movies, /tv, /animations browse pages. */

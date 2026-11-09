@@ -34,6 +34,16 @@ export interface CategoryDef {
   externalHub?: { label: string; url: string; note: string };
   /** Show in the main navigation. */
   inNav: boolean;
+  /**
+   * Which ranking block the app shows on this tab.
+   *
+   * The app puts a ranking block on every tab, and the chips are the
+   * upstream's own ranking groups. This picks which of them belongs here —
+   * a TV ranking for a series tab, a movie ranking for a film tab, an anime
+   * ranking for an animation tab. A category with no ranking block simply
+   * omits it.
+   */
+  rankingKind?: "movie" | "tv" | "anime";
 }
 
 /**
@@ -70,6 +80,7 @@ export const CATEGORIES: CategoryDef[] = [
       { kind: "filter", title: "Folktales & Fairy Tales", channelId: 2, filters: { genre: "Cartoon" } },
       { kind: "filter", title: "Shorts & Sing-alongs", channelId: 5, filters: { genre: "Cartoon" } },
     ],
+    rankingKind: "anime",
   },
   {
     slug: "asian",
@@ -97,6 +108,7 @@ export const CATEGORIES: CategoryDef[] = [
       { kind: "filter", title: "Indian Series", channelId: 2, filters: { country: "India" } },
       { kind: "filter", title: "Indonesian Drama", channelId: 1, filters: { country: "Indonesia" } },
     ],
+    rankingKind: "tv",
   },
   {
     slug: "western",
@@ -117,6 +129,7 @@ export const CATEGORIES: CategoryDef[] = [
       { kind: "filter", title: "Hollywood Westerns", channelId: 1, filters: { genre: "Western", country: "United States" } },
       { kind: "filter", title: "Western Series", channelId: 2, filters: { genre: "Western" } },
     ],
+    rankingKind: "movie",
   },
   {
     slug: "nollywood",
@@ -136,6 +149,7 @@ export const CATEGORIES: CategoryDef[] = [
       { kind: "filter", title: "Nollywood Movies", channelId: 1, filters: { genre: "Nollywood" } },
       { kind: "filter", title: "Latest from Nigeria", channelId: 1, filters: { country: "Nigeria" } },
     ],
+    rankingKind: "movie",
   },
   {
     slug: "midnight",
@@ -160,6 +174,7 @@ export const CATEGORIES: CategoryDef[] = [
       { kind: "filter", title: "Cartoons", channelId: 5, filters: { genre: "Cartoon" } },
       { kind: "filter", title: "Songs & Music", channelId: 5, filters: { genre: "Song" } },
     ],
+    rankingKind: "tv",
   },
   {
     slug: "music",

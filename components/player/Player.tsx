@@ -466,8 +466,21 @@ export function Player({
       }
     };
     const onError = () => {
-      if (!error && sources.length > 1) {
-        setError("Stream error. Trying the next source…");
+      if (error) return;
+      // The ladder is bounded by how many rungs have ALREADY failed, not by
+      // how many rungs exist. `sources.length > 1` used to gate this, which
+      // meant the ladder could cycle for ever — 1080p → 480p → 360p → 1080p
+      // → … — and the error overlay flashed on every lap. That is what made
+      // the player look like it was permanently broken.
+      //
+      // `autoFallbackCount` is reset to 0 the moment a source loads, so it is
+      // exactly "how many rungs have failed since the last one worked".
+      const tried = autoFallbackCount;
+      if (tried < sources.length - 1) {
+        // Falling through to the next rung is NOT an error state — the player
+        // is still trying to play, and the "Trying next source…" pill says
+        // so. Putting an error message here flashed the overlay over a
+        // source that was about to work.
         setLoading(true);
         const fromIdx = clampedIndex;
         // Pick the next best source AFTER the one that just failed.
@@ -486,8 +499,9 @@ export function Player({
         onSourceChange?.(nextIdx);
         onAutoFallback?.(fromIdx, nextIdx);
         setAutoFallbackCount((c) => c + 1);
-      } else if (!error) {
-        setError("Stream error. Please try again.");
+      } else {
+        // Every rung has been tried and none of them played.
+        setError("Stream error. Try a different source.");
       }
     };
     video.addEventListener("loadedmetadata", onLoaded, { once: true });
@@ -873,13 +887,20 @@ export function Player({
 
   const setRate = useCallback((rate: number) => setPlaybackRate(rate), []);
 
-  // Retry has to RE-FETCH, not replay. The relay hands out MP4 URLs
-  // carrying a short-lived upstream signature (`?sign=…&t=…`) that
-  // expires in roughly 12 minutes. Re-assigning the same `activeSource
-  // .url` on retry just re-requests the dead URL, so the user gets an
-  // infinite retry → "Stream error" loop. Asking the parent to refresh
-  // sources mints a brand-new signed URL, which the `activeSource`
-  // effect then attaches automatically.
+  // Retry has to RE-FETCH, not replay.
+  //
+  // The relay can hand out a URL whose upstream copy has gone bad, or the
+  // relay itself can be briefly unavailable. Re-assigning the same
+  // `activeSource.url` on retry just re-requests the exact same URL, so the
+  // user gets an infinite retry → "Stream error" loop. Asking the parent to
+  // refresh the sources re-runs the whole resolution chain, which is the only
+  // way to get a different URL out of the upstream.
+  //
+  // (The signed `?sign=…&t=…` on the upstream URL was suspected to expire
+  // after ~12 minutes and to be the cause. VERIFIED on 2026-11-09 against the
+  // live relay: a URL whose `t` is 31 minutes stale still serves 206 with
+  // valid bytes, and stripping or corrupting the signature changes nothing.
+  // The signature is not the problem.)
   const handleRetry = useCallback(() => {
     setError(null);
     setLoading(true);
@@ -1149,7 +1170,19 @@ export function Player({
           onEnded?.();
         }}
         onError={() => {
-          if (!error) setError("Stream error. Try a different source.");
+          // The source effect's own listener owns the fallback: it knows which
+          // rung to try next and how many rungs have already failed. This
+          // handler only owns the TERMINAL case — every rung has been tried
+          // and none of them played.
+          //
+          // It used to set the terminal message unconditionally, which meant
+          // it raced the fallback listener on the same error event and the
+          // overlay appeared over a source that was about to work. That is
+          // the "Stream error. Try a different source." the viewer saw on a
+          // stream that was about to recover on its own.
+          if (error) return;
+          if (autoFallbackCount < sources.length - 1) return;
+          setError("Stream error. Try a different source.");
         }}
       />
 

@@ -458,9 +458,13 @@ current-state block at the top of that file.
    (bogus). `hasMore`/`nextPage` are the usable fields. Raising
    `SITEMAP_PAGES_PER_CHANNEL` trades build time (4 pages ≈ 205 s) for
    coverage.
-4. **bcdn signed-URL expiry window is unmeasured.** `/api/sources` caches the
-   ladder 60 s; a mid-playback expiry surfaces as a player error. No
-   re-resolve-on-403 path exists in `/api/video-proxy`.
+4. **bcdn signed-URL expiry window — MEASURED, it does not expire.**
+   Was suspected to be the cause of the mid-playback "Stream error". VERIFIED
+   against the live relay on 2026-11-09 (`scripts/probe-signed-url-expiry.mjs`):
+   a URL whose `t` is 31 minutes stale still answers `206` with valid bytes,
+   and stripping the signature entirely changes nothing. The relay does not
+   enforce `t`. There is still no re-resolve-on-403 path in
+   `/api/video-proxy`, but expiry is not the cause.
 5. **Vercel→bcdn throughput unmeasured** (direct from this host: 1.03–5.54
    MiB/s). Mitigations in place: descending ladder + relay fallback.
 6. **OnStream catalogue coverage** is good for the 40 sampled titles, not
@@ -485,6 +489,33 @@ current-state block at the top of that file.
 
 - *Subtitles listed but not rendering* — see §9.2.
 - *Nothing was cacheable; every page re-rendered per request* — see §8.
+
+**Fixed 2026-11-09 and no longer open:**
+
+- *"Stream error. Try a different source." while watching* — the bytes were
+  never the problem (valid faststart MP4, `206` on `bytes=0-`, 14–17 Mbps
+  sustained, no signature expiry). The fallback ladder in
+  `components/player/Player.tsx` was gated on `sources.length > 1` — the
+  **total** number of rungs, not how many had already failed — so it could
+  cycle for ever (1080p → 480p → 360p → 1080p → …) with the error overlay
+  flashing on every lap. A second handler on the same event (React's
+  delegated `onError`) raced it and won, so the viewer saw the terminal
+  message instead of the "trying the next source" progress. Both fixed: the
+  ladder is now bounded by `autoFallbackCount`, and the JSX handler only owns
+  the terminal case.
+- *"Scroll to the end and it never fetches more"* — `/subject/filter` puts
+  its pagination in **`data.pager`**, not at the top level of `data`. The
+  site read `data.hasMore`, which is always `undefined`, so `hasMore` was
+  always `false` and every browse grid stopped after 28 titles with "You've
+  reached the end." The upstream's `totalCount` is `1000000` — a placeholder,
+  not a catalogue size, so it is never shown as a title count either.
+- *"the hero is not the app's"* — the site now renders the upstream's own
+  `BANNER` block as a full-bleed 16:9 pager that advances every 5 s, with
+  the app's slide strip underneath, on the homepage and on `/trending`.
+- *The ranking system was missing on the browse screens* — the app has a
+  ranking block on every tab. It is now on `/movies`, `/tv`, `/animations`
+  and every category page, as a chip row over a **horizontal** ranked poster
+  strip.
 
 ---
 

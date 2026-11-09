@@ -92,6 +92,29 @@ export default function RootLayout({
       className={cn(inter.variable, cinzel.variable, "h-full antialiased")}
     >
       <body className="flex min-h-dvh flex-col bg-bg-deepest text-text-primary">
+        {/* Ahrefs Web Analytics.
+
+            This is a plain <script> tag on purpose, NOT `next/script`.
+            VERIFIED on the built HTML on 2026-11-09: `next/script` with
+            `strategy="beforeInteractive"` emits only
+              <link rel="preload" href="…/analytics.js" as="script"/>
+            plus a `self.__next_s.push(…)` runtime call — no literal
+            <script src="https://analytics.ahrefs.com/analytics.js"> ever
+            appears in the server-rendered HTML. Ahrefs' "Recheck installation"
+            bot reads the raw page, so it would report the site as not
+            installed even though the script does run in a real browser.
+
+            React 19 hoists an <script async src=…> into <head> during
+            server rendering, so the tag lands in the head of every route's
+            HTML exactly where the vendor asked for it.
+
+            The script is async and third-party: it never blocks rendering and
+            never touches the static/ISR cache of any route. */}
+        <script
+          async
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="7gdtpRLUCl7EE8j5ve6BzA"
+        />
         {/* llms.txt discovery. There is no standard robots.txt directive for
             it, so the link tag in the document head is what tells an
             assistant where the plain-text site summary lives.

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { MovieRow } from "@/components/home/MovieRow";
+import { RankingShelfSection } from "@/components/rankings/RankingShelfSection";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { getBoxmoviesBrowse, getBoxmoviesOperatingTab } from "@/lib/data";
 import { toMediaCards } from "@/lib/cards";
@@ -143,6 +144,16 @@ export default async function CategoryPage({ params }: PageProps) {
             ))}
           </div>
         )}
+
+        {/* The app's ranking block — the upstream's own ranked groups, on
+            every category screen too. */}
+        {cat.rankingKind ? (
+          <RankingShelfSection
+            kind={cat.rankingKind}
+            title={`${cat.title} Rankings`}
+            className="mt-8 sm:mt-10"
+          />
+        ) : null}
 
         <nav
           aria-label="Other categories"

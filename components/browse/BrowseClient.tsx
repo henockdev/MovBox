@@ -58,7 +58,13 @@ export function BrowseClient({
         const r = await fetch(`/api/browse?${params.toString()}`);
         const j = await r.json();
         if (j.ok) {
-          setItems(append ? [...items, ...(j.items ?? [])] : j.items ?? []);
+          // A functional update, so appending never depends on a stale
+          // closure. The old version closed over `items`, which meant two
+          // overlapping page fetches could overwrite each other and drop a
+          // whole page of titles.
+          setItems((prev) =>
+            append ? [...prev, ...(j.items ?? [])] : (j.items ?? [])
+          );
           setHasMore(!!j.hasMore);
           setPage(nextPage);
           setTotalCount(j.totalCount ?? null);
@@ -73,7 +79,7 @@ export function BrowseClient({
         setLoading(false);
       }
     },
-    [channelId, items]
+    [channelId]
   );
 
   // When filters change, reset to page 1 and replace items.
@@ -88,16 +94,18 @@ export function BrowseClient({
     [fetchPage]
   );
 
-  // Infinite-scroll page increment. Stable signature so the IO
-  // dependency doesn't churn in the BrowseGrid effect.
+  // Infinite-scroll page increment.
+  //
+  // The fetch used to be kicked off INSIDE the `setPage` updater. React runs
+  // an updater twice in StrictMode (which this project enables), so every
+  // scroll triggered TWO identical requests for the same page — one of them
+  // always wasted, and both of them racing to append the same titles.
   const goNextPage = useCallback(() => {
     if (loading || !hasMore) return;
-    setPage((p) => {
-      const next = p + 1;
-      fetchPage(filters, next, true);
-      return next;
-    });
-  }, [loading, hasMore, filters, fetchPage]);
+    const next = page + 1;
+    setPage(next);
+    fetchPage(filters, next, true);
+  }, [loading, hasMore, page, filters, fetchPage]);
 
   return (
     <div className="mx-auto w-full max-w-[1500px] px-3 py-4 sm:px-5 md:px-6 md:py-6">

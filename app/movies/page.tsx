@@ -4,6 +4,7 @@ import {
   getBoxmoviesFilterOptions,
 } from "@/lib/data";
 import { BrowseClient } from "@/components/browse/BrowseClient";
+import { RankingShelfSection } from "@/components/rankings/RankingShelfSection";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { pageSeo } from "@/lib/seo";
 
@@ -66,6 +67,10 @@ export default async function MoviesPage() {
             Hollywood, Nollywood, Bollywood, K-Drama & more — updated daily.
           </p>
         </header>
+
+        {/* The app's ranking block — the upstream's own ranked groups, on
+            every browse screen. */}
+        <RankingShelfSection kind="movie" title="Movie Rankings" className="mb-5 md:mb-7" />
       </div>
 
       <BrowseClient

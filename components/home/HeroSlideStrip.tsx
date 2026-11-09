@@ -46,7 +46,7 @@ export function HeroSlideStrip({ items, className }: HeroSlideStripProps) {
           const poster = imageUrl(media.posterPath, "w500");
           const kind = media.type === "movie" ? "Movie" : "TV Series";
           const year = formatYear(media.year);
-          const meta = [year, kind].filter(Boolean).join(" · ");
+          const meta = media.subline || [year, kind].filter(Boolean).join(" · ");
 
           return (
             <li

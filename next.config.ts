@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
       // Boxmovies (the single source of truth)
       { protocol: "https", hostname: "pbcdnw.aoneroom.com" },
+      // The hero banner artwork comes off the sibling CDN host. Without this
+      // the banner <Image> is rejected and the hero renders empty.
+      { protocol: "https", hostname: "pbcdn.aoneroom.com" },
       { protocol: "https", hostname: "pacdn.aoneroom.com" },
       { protocol: "https", hostname: "macdn.aoneroom.com" },
       { protocol: "https", hostname: "bcdnxw.hakunaymatata.com" },

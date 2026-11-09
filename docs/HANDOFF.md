@@ -9,7 +9,7 @@
 
 ---
 
-## ⚠️ CURRENT STATE (2026-11-06) — read this first
+## ⚠️ CURRENT STATE (2026-11-09) — read this first
 
 The sections below were written on 2026-08-27 and are **stale in two ways**.
 This block overrides them.
@@ -19,6 +19,86 @@ This block overrides them.
 | Repo is `C:\projects\HMovies` | Repo is `C:\projects\learn\android-app-investigation\websites\movbox`, on GitHub at `https://github.com/henockdev/MovBox`, branch `main`. It **is** deployed and live at `movbox.xyz` on **Vercel** — not on Oracle Cloud. |
 | "Deploy to Oracle Cloud Always Free" is the next step | That did not happen. Vercel is the production host. The deploy is a `git push` to `main`. |
 | `boxmovies-api` is the backend | It is gone. The site calls `h5-api.aoneroom.com/wefeed-h5api-bff` directly from `lib/data.ts`, with a signed mobile-BFF path (`api6.aoneroom.com`) and a DigitalOcean stream relay as fallbacks. |
+
+### The OnStream / relay split (2026-11-09)
+
+The app-recreation backend (`lib/onstream/`, the mobile BFF `api6.aoneroom.com`)
+**cannot run from Vercel**: it answers `HTTP 440 ServiceNotAvailable` from
+every Vercel region. It authenticates fine from a residential IP, so it works
+on a developer machine and fails in production — which means **a bug in that
+path is invisible locally and live**.
+
+The owner has decided: **the relay is the production stream**, the OnStream
+path stays as the fallback it was written to be. Do not spend more time
+trying to make `api6` work from Vercel without a different egress IP.
+
+### The hero (2026-11-09)
+
+The site's hero is now **the app's Trending hero**: the upstream's own
+`BANNER` block (wide 1920×1080 / 3840×2160 artwork), rendered as a full-bleed
+16:9 pager that advances every 5 s, with the compact slide strip underneath —
+the same two pieces the Android app shows.
+
+The `BANNER` entry lives inside the `/home` and `/tab-operating` responses and
+the web code was **throwing it away** (every entry without a `subjects` array
+was skipped). `mapBannerToHeroSlides()` in `lib/data.ts` reads it now, and
+the homepage gets it from the `/home` fetch it already made — **zero extra
+upstream calls**.
+
+### The pagination bug (2026-11-09)
+
+*"When I scroll it says the end and it doesn't fetch more."*
+
+`/subject/filter` puts its pagination in **`data.pager`**, not at the top
+level of `data`:
+
+```json
+data: { "pager": { "hasMore": true, "nextPage": "2", "page": "1",
+                   "perPage": 28, "totalCount": 1000000 }, "items": [...] }
+```
+
+The site read `data.hasMore` / `data.totalCount` / `data.nextPage`, which are
+always `undefined` — so `hasMore` was always `false` and **every browse grid
+stopped after 28 titles** with "You've reached the end." while the upstream
+had `totalCount: 1000000`.
+
+`items.length` is not a usable fallback either: the upstream regularly answers
+a `perPage: 28` request with 27 items while still saying `hasMore: true`.
+
+**Always read the pager.** `scripts/probe-filter-pager.mjs` dumps it.
+
+### The "Stream error" bug (2026-11-09)
+
+*"While watching a movie it always makes: Stream error. Try a different
+source."*
+
+The bytes were never the problem. Measured against the live relay:
+
+- the relayed MP4 is a valid faststart container (`ftyp` + `moov` at the head)
+- `Range: bytes=0-` → `206` with the full `Content-Range`
+- throughput 14–17 Mbps sustained, one long-lived connection
+- the signed `?sign=…&t=…` does **not** expire (a URL whose `t` is 31
+  minutes stale still serves 206 with valid bytes)
+
+The defect was in the player: the fallback ladder was gated on
+`sources.length > 1` — the **total** number of rungs, not how many had
+already failed. So the ladder could cycle for ever (1080p → 480p → 360p →
+1080p → …) and the error overlay flashed on every lap. A second handler on
+the same event (React's delegated `onError` vs the effect's own listener)
+raced it and won, so the viewer saw the terminal message instead of the
+"trying the next source" progress.
+
+Both are fixed in `components/player/Player.tsx`.
+
+### The ranking block (2026-11-09)
+
+The app puts a ranking block on **every** tab. The site now does too: a chip
+row of the upstream's own ranking groups over a **horizontal** ranked poster
+strip (one row, swipe sideways — never a wrapping grid). It is on `/movies`,
+`/tv`, `/animations` and every category page that has a ranking kind.
+
+Which groups belong on which screen is decided by the group's own contents
+(`lib/ranking-shelf.ts`), not by a hand-written list.
 
 ### The SEO / GEO recalibration (2026-11-06)
 
