@@ -27,7 +27,7 @@
 //   - `subject.releaseDate` is a real date ("2026-08-07") and is what we
 //     use for `<lastmod>` — the build timestamp used to be wrong.
 
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -365,35 +365,36 @@ async function resolveTitles(token, entries) {
 }
 
 // ---------------------------------------------------------------------------
-// Genre pages (TMDB)
+// Genre pages
 // ---------------------------------------------------------------------------
+//
+// The genre pages used to come from TMDB. They are built on the real
+// catalogue now (see lib/genres.ts) and TMDB_API_KEY is not set on this
+// deployment — so asking TMDB for the genre list meant the sitemap shipped
+// WITHOUT any /genres/<id> URL, even though every one of those pages is a
+// real, content-rich, self-canonical page.
+//
+// The ids are read straight out of lib/genres.ts, so there is one source of
+// truth: a genre added there is in the sitemap on the next build, and a
+// genre removed there disappears from it.
 
 async function collectGenrePages() {
-  const key = process.env.TMDB_API_KEY;
-  if (!key) {
-    console.log("[sitemap] TMDB_API_KEY not set, skipping genre pages");
+  try {
+    const src = await readFile(
+      new URL("../lib/genres.ts", import.meta.url),
+      "utf8"
+    );
+    const ids = [...src.matchAll(/^\s*id:\s*"(\d+)",/gm)].map((m) => m[1]);
+    if (!ids.length) {
+      console.warn("[sitemap] no genre ids found in lib/genres.ts");
+      return [];
+    }
+    console.log(`[sitemap] ${ids.length} genre pages from lib/genres.ts`);
+    return ids.map((id) => ({ id }));
+  } catch (e) {
+    console.warn(`[sitemap] genre ids unreadable: ${e.message}`);
     return [];
   }
-  const out = [];
-  for (const type of ["movie", "tv"]) {
-    try {
-      const res = await fetchWithTimeout(
-        `${TMDB_BASE}/genre/${type}/list?api_key=${encodeURIComponent(key)}`
-      );
-      if (!res.ok) continue;
-      const json = await res.json();
-      for (const g of json.genres || []) {
-        out.push({
-          id: String(g.id),
-          name: g.name,
-          type,
-        });
-      }
-    } catch (e) {
-      console.warn(`[sitemap] tmdb ${type} genres failed: ${e.message}`);
-    }
-  }
-  return out;
 }
 
 /**

@@ -20,6 +20,69 @@ This block overrides them.
 | "Deploy to Oracle Cloud Always Free" is the next step | That did not happen. Vercel is the production host. The deploy is a `git push` to `main`. |
 | `boxmovies-api` is the backend | It is gone. The site calls `h5-api.aoneroom.com/wefeed-h5api-bff` directly from `lib/data.ts`, with a signed mobile-BFF path (`api6.aoneroom.com`) and a DigitalOcean stream relay as fallbacks. |
 
+### The upstream rate-limits, and that is not a 404 (2026-11-09)
+
+**The single most important thing to know about this site's data layer.**
+
+`h5-api.aoneroom.com` answers `HTTP 429` when it is hit in a burst.
+Measured: **44 detail calls succeeded, the next 206 were all 429.** A crawler
+walking the sitemap is exactly that burst.
+
+Before this was understood, a 429 was swallowed by a `catch { return null }`
+and the page called `notFound()`. So **hundreds of titles that exist were
+being served as "not found"** — an empty document, HTTP 200, no `<h1>`, the
+title "Movie not found". That is a soft 404, and it is what the Ahrefs
+audit was really reporting.
+
+The fix, in three parts:
+
+1. **`lib/data.ts` retries** — `h5Fetch()` retries `429`/`5xx` three times
+   with a jittered backoff (500 ms → 1.5 s → 3 s). The upstream's limit
+   window is a few seconds, so the retry clears it.
+2. **"missing" and "failed" are different answers** —
+   `getBoxmoviesDetailOutcome()` returns `ok` | `missing` | `error`. Only an
+   upstream `HTTP 404` means the title is missing. A rate-limited or
+   timed-out call is an `error`, and the page answers with the title from
+   the URL (`titleFromDetailPath()`) instead of claiming the title is gone.
+3. **`app/loading.tsx` is gone** — a root `loading.tsx` is a Suspense
+   boundary, and Next.js flushes that shell before the page renders, so a
+   `notFound()` thrown afterwards could never set the status: every 404 in
+   the site answered **HTTP 200 with an empty body**. Without it a missing
+   title is a real **404**, and the two pages that need
+   `useSearchParams()` (`/login`, `/watch/tv/[id]`) carry their own
+   `<Suspense>` boundary.
+
+**Do not put a `catch { return null }` around an upstream call and turn it
+into a 404.** If the upstream refused, the page is temporarily unavailable,
+not missing.
+
+### The search screen (2026-11-09)
+
+The site's `/search` is now the app's search screen: a field with the search
+action inside it, recent searches, "🔥 Everyone is searching" (the titles of
+the ranking block, exactly as the app derives it), catalogue tabs
+(`subjectType` 0/1/2/5), ranked result rows with the app's badge colours,
+a filter panel and infinite scroll.
+
+The header field is a **trigger, not an input** — it opens a full-screen
+overlay (`components/search/SearchOverlay.tsx`) hosted for the whole site by
+`SearchProvider`. `Ctrl`/`Cmd`+`K` and `/` open it too.
+
+The upstream's `/subject/search-suggest` returns **words only** — 0 of 120
+sampled items carried a `subject`. So the overlay enriches them by querying
+the real search endpoint and rendering real title rows with artwork. Nothing
+is fabricated.
+
+### The brand mark (2026-11-09)
+
+The logo is **the mark alone** — no wordmark next to it (the owner's
+instruction: *"i only need the logo i gave you"*). `public/movbox_logo_nav.png`
+used to be a JPEG with no alpha and ~70 % empty padding, which is why it
+rendered as a black box. `scripts/make-brand-assets.py` now regenerates the
+whole set from `assets/brand/movbox-mark.png`: the transparent mark, the
+favicon set, the PWA icons and the social cards. **Re-run it after any
+change to the mark** — it is the only place the icons come from.
+
 ### The OnStream / relay split (2026-11-09)
 
 The app-recreation backend (`lib/onstream/`, the mobile BFF `api6.aoneroom.com`)
@@ -478,3 +541,10 @@ When the user comes back and says "continue":
 - **`dev.log`, `dev.err`, `dev.stdout.log`, `dev.stderr.log`** in the project root are dev-server noise, gitignored.
 - **Background-task 30-min cap** — use `Start-Process` for anything you want to leave running.
 - **CinePro / TMDB code** in `lib/` is dead. Don't import it. `lib/boxmovies.ts` is the only backend client.
+- **The title band is 30–60 characters, rendered.** The root layout's template is `"%s | Movbox"`, so the template title is capped at **51** (51 + 9 = 60) and the rendered title has to clear **30**. `lib/seo.ts` does both — but it can only *shorten* a title, so the source title must already be long enough. `detailTitle()` is what enriches a short one, and it must never produce "Watch Watch …".
+- **The description band is 120–160 characters.** A short description is *extended* with one site-level tail (the shortest tail that lands it in the band). `clampDescription()` is idempotent — but do **not** call it before `pageSeo()`, or the tail is appended twice.
+- **`clampTitle()` only strips a trailing language tag** ("… [English]", "… (English Dubbed)"). It must not strip an arbitrary parenthetical — "Why We Built Movbox (And Why It's Free)" keeps its tail.
+- **One `<h1>` per document.** `PageLoader` renders a `<p>`, not a heading: the watch pages already have the title as their `<h1>`, and three `<h1>`s reads as three competing topics to a crawler.
+- **`useSearchParams()` needs its own `<Suspense>`** now that the root `loading.tsx` is gone. `/login` and `/watch/tv/[id]` carry one.
+- **`scripts/generate-sitemap.mjs` reads the genre ids from `lib/genres.ts`.** It used to ask TMDB for them, and TMDB_API_KEY is not set — so the sitemap shipped with no `/genres/<id>` URL at all.
+

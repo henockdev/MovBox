@@ -5,6 +5,7 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { Footer } from "@/components/layout/Footer";
 import { SiteAds } from "@/components/ads/SiteAds";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
+import { SearchProvider } from "@/components/search/SearchProvider";
 import { SITE_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -122,19 +123,23 @@ export default function RootLayout({
         <link rel="llms-txt" href="/llms.txt" />
         {/* WebSite + Organization — the site-wide identity markup. */}
         <SiteJsonLd />
-        <Header />
-        {/* movbox-has-socialbar-space keeps the last row of content clear of
-            the fixed mobile nav AND the Adsterra social bar. Inert while
-            --movbox-socialbar-h is 0. See app/globals.css. */}
-        <main className="movbox-has-socialbar-space flex-1 pb-16 md:pb-0">
-          {children}
-        </main>
-        <Footer />
-        <MobileNav />
-        {/* Site-wide ad units. Mounted once, here, so no route can
-            accidentally double-load a tag. Placement matrix and the reasons
-            behind each exclusion live in components/ads/SiteAds.tsx. */}
-        <SiteAds />
+        {/* The search screen, hosted once for the whole site: touching the
+            header's search field pops the app's search screen over the page. */}
+        <SearchProvider>
+          <Header />
+          {/* movbox-has-socialbar-space keeps the last row of content clear of
+              the fixed mobile nav AND the Adsterra social bar. Inert while
+              --movbox-socialbar-h is 0. See app/globals.css. */}
+          <main className="movbox-has-socialbar-space flex-1 pb-16 md:pb-0">
+            {children}
+          </main>
+          <Footer />
+          <MobileNav />
+          {/* Site-wide ad units. Mounted once, here, so no route can
+              accidentally double-load a tag. Placement matrix and the reasons
+              behind each exclusion live in components/ads/SiteAds.tsx. */}
+          <SiteAds />
+        </SearchProvider>
       </body>
     </html>
   );

@@ -175,7 +175,12 @@ export function PageLoader({
           {label === "LOADING" ? "Sit tight" : label}
         </p>
 
-        <h1
+        {/* The big label is NOT a heading. The watch pages already carry the
+            title as their <h1>, and a document with three <h1> elements
+            reads as three competing topics to a crawler. The loader is a
+            status region (the wrapper has role="status"), so a <p> is the
+            correct element here. */}
+        <p
           className={cn(
             "mt-4 font-display font-bold leading-[0.95] tracking-[0.08em] text-cream",
             "text-[44px] sm:text-6xl md:text-7xl"
@@ -186,7 +191,7 @@ export function PageLoader({
           }}
         >
           {label}
-        </h1>
+        </p>
 
         {showProgress && (
           <div className="mt-8 w-full max-w-md">

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getBoxmoviesRankings, cleanRankingTitle } from "@/lib/data";
 import { RankingsView } from "@/components/rankings/RankingsView";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
@@ -46,11 +46,17 @@ export async function generateMetadata({
   const groups = await getBoxmoviesRankings().catch(() => []);
   const active = groups.find((g) => g.slug === group);
   if (!active) {
+    // The upstream drops and renames ranking groups (a slug changed from
+    // "trending-short-drma" to "trending-short-drama"), so a URL that is
+    // still in an old sitemap can outlive the group. The page answers with
+    // a real, indexable-looking heading but is marked noindex, so it never
+    // competes with the live group it used to be.
     return pageSeo({
-      path: "/rankings",
-      title: "Movbox Rankings — Top Movies & TV Shows, Ranked Daily",
+      path: `/rankings/${group}`,
+      title: "This ranking is no longer available",
       description:
-        "Every Movbox ranking in one place: top K-Drama, Anime, Action, Horror, Romance, Nollywood and more. Ranked by what people are watching and updated daily.",
+        "This Movbox ranking is no longer available. Browse every live ranking — movies, series, K-Drama, anime and more — on the Movbox rankings page.",
+      noindex: true,
     });
   }
 
@@ -62,7 +68,7 @@ export async function generateMetadata({
     path: `/rankings/${active.slug}`,
     title: `${label} Rankings — Top ${n} on Movbox`,
     description: `The top ${n} ${label.toLowerCase()} titles on Movbox, ranked by what people are watching and updated daily. Watch every one free in HD on any screen.`,
-    image: active.items[0]?.posterUrl ?? "/opengraph-image",
+    image: active.items[0]?.posterUrl || "/opengraph-image",
     imageWidth: 1200,
     imageHeight: 630,
     keywords: [
@@ -78,7 +84,29 @@ export default async function RankingGroupPage({ params }: RankingGroupPageProps
   const { group } = await params;
   const groups = await getBoxmoviesRankings().catch(() => []);
   const active = groups.find((g) => g.slug === group);
-  if (!active) notFound();
+
+  // A group the upstream has retired still has to answer with a real page:
+  // an empty document (what notFound() produced here) is a soft 404 — it
+  // looks like a page with no heading and no metadata to a crawler.
+  if (!active) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 pb-16 pt-24 md:px-6 lg:px-8">
+        <h1 className="font-display text-3xl font-bold text-cream md:text-4xl">
+          This ranking is no longer available
+        </h1>
+        <p className="mt-3 max-w-2xl text-text-secondary">
+          The upstream renamed or retired this ranking. Every live ranking —
+          movies, series, K-Drama, anime and more — is one click away.
+        </p>
+        <Link
+          href="/rankings"
+          className="mt-6 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-accent/80"
+        >
+          See all rankings
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <>

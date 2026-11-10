@@ -1,58 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
+import { suggestBoxmovies } from "@/lib/data";
 
 /**
  * GET /api/search-suggest?q=...
  *
- * Quick typeahead for the header search bar. Drives the same h5-api
- * endpoint boxmovies's own typeahead uses
- * (POST /wefeed-h5api-bff/subject/search-suggest). Returns up to 10
- * keyword strings the user can pick from.
+ * Quick typeahead for the search screen. Drives the same h5-api endpoint
+ * the Android app drives — `POST /wefeed-h5api-bff/subject/search-suggest`
+ * — and returns the words the upstream suggests for what has been typed.
  *
- * Cached on the edge for 30s — typeahead is a per-keystroke call but
- * the upstream result doesn't change that often.
+ * The upstream's suggest endpoint needs no bearer token (verified live on
+ * 2026-11-09), so this stays fast and cannot fail on an expired session.
+ *
+ * Cached on the edge for 60s — typeahead is a per-keystroke call, but the
+ * upstream answer does not change that often.
  */
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const BOX_BASE =
-  process.env.BOXMOVIES_API ??
-  process.env.NEXT_PUBLIC_BOXMOVIES_API ??
-  "http://localhost:4000";
-
-const TIMEOUT_MS = 30_000;
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") ?? "").trim();
-  if (!q) {
+
+  if (q.length < 2) {
     return NextResponse.json(
-      { ok: false, error: "Missing q", results: [] },
-      { status: 400 }
+      { ok: true, query: q, suggestions: [] },
+      { headers: { "Cache-Control": "public, max-age=30, s-maxage=60" } }
     );
   }
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   try {
-    const res = await fetch(
-      `${BOX_BASE}/searchSuggest?q=${encodeURIComponent(q)}`,
-      {
-        signal: controller.signal,
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      }
+    const suggestions = await suggestBoxmovies(q);
+    return NextResponse.json(
+      { ok: true, query: q, suggestions },
+      { headers: { "Cache-Control": "public, max-age=30, s-maxage=60" } }
     );
-    const j = await res.json();
-    return NextResponse.json(j, {
-      headers: { "Cache-Control": "public, max-age=30, s-maxage=60" },
-    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.warn(`[api/search-suggest] ${q} failed: ${message}`);
     return NextResponse.json(
-      { ok: false, error: message, results: [] },
-      { status: 504 }
+      { ok: false, error: message, suggestions: [] },
+      { status: 200 }
     );
-  } finally {
-    clearTimeout(t);
   }
 }

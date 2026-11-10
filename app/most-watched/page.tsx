@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { Flame } from "lucide-react";
 import { MediaGrid } from "@/components/media/MediaGrid";
 import { getBoxmoviesHome } from "@/lib/data";
@@ -7,6 +7,16 @@ import { pageSeo } from "@/lib/seo";
 import type { MediaCard } from "@/lib/types";
 
 export const revalidate = 1800;
+
+/**
+ * How many titles this page lists.
+ *
+ * Ten screens of a five-wide grid on a desktop. The page used to list every
+ * rated title in the home feed (~600 cards) and shipped 2.27 MB — over
+ * Ahrefs' 2 MB crawl limit, which made the crawler truncate the page and
+ * mis-read it.
+ */
+const MAX_TITLES = 120;
 
 export const metadata: Metadata = pageSeo({
   path: "/most-watched",
@@ -47,15 +57,36 @@ function toMediaCard(c: {
 }
 
 export default async function MostWatchedPage() {
-  const home = await getBoxmoviesHome().catch(() => ({ sections: [], hero: [] }));
+  const home = await getBoxmoviesHome().catch(() => ({
+    sections: [],
+    hero: [],
+    heroSlides: [],
+    count: 0,
+  }));
   // Sort by rating where available, fall back to hero pool
   const all = [
     ...home.hero,
     ...home.sections.flatMap((s) => s.items),
   ].filter((c) => c.rating && c.rating > 0);
+
+  // Two things kept this page over Ahrefs' 2 MB crawl limit — 2.27 MB, the
+  // only page on the site that broke it:
+  //
+  //   1. every card carried the title's full synopsis, and the grid card
+  //      never renders it. That was ~600 unused synopses in the payload.
+  //   2. the list was every rated title in the whole home feed — about 600
+  //      cards, which is far past what anybody scrolls.
+  //
+  // The overview is dropped and the list is capped. The order is still the
+  // upstream's own rating order.
   const items = [...all]
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-    .map(toMediaCard);
+    .slice(0, MAX_TITLES)
+    .map((c) => ({
+      ...toMediaCard(c),
+      // The grid card does not render the synopsis — do not ship it.
+      overview: "",
+    }));
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-16 pt-24 md:px-6 lg:px-8">

@@ -34,8 +34,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
   return pageSeo({
     path: `/category/${cat.slug}`,
-    title: cat.title,
+    // The Ahrefs audit measured these seven pages with a 14-21 character
+    // title ("Nollywood | Movbox") and no og:image. Both are cheap to fix and
+    // both are what a social card and a search result need.
+    title: `${cat.title} Movies & TV Shows — Watch Free`,
     description: cat.description,
+    image: "/opengraph-image",
+    imageWidth: 1200,
+    imageHeight: 630,
     keywords: cat.keywords,
     // A category with no catalogue of its own is a signpost, not content.
     // /category/live holds no titles — live channels are served by the

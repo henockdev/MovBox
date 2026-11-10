@@ -10,6 +10,11 @@ import {
 import { ArticleJsonLd } from "@/components/seo/ArticleJsonLd";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { SITE_URL } from "@/lib/constants";
+import {
+  MAX_TEMPLATE_TITLE,
+  clampDescription,
+  clampTitle,
+} from "@/lib/seo";
 
 // Pre-render all known slugs at build time so individual posts are
 // static HTML, not dynamic SSR (better for SEO + load speed).
@@ -30,26 +35,35 @@ export async function generateMetadata({
       robots: { index: false, follow: false },
     };
   }
+  // Every blog post needs a title, a description, a canonical and a preview
+  // image. The descriptions are clamped into the 120-160 band (a short
+  // description is extended, a long one is cut on a word boundary) and the
+  // posts that have no artwork of their own fall back to the site's own
+  // social card, so og:image is never missing.
+  const title = clampTitle(article.title, MAX_TEMPLATE_TITLE);
+  const description = clampDescription(article.description);
+  const image = article.image || "/opengraph-image";
+
   return {
-    title: article.title,
-    description: article.description,
+    title,
+    description,
     alternates: { canonical: `${SITE_URL}/blog/${article.slug}` },
     openGraph: {
       type: "article",
-      title: article.title,
-      description: article.description,
+      title,
+      description,
       url: `${SITE_URL}/blog/${article.slug}`,
       publishedTime: article.date,
       modifiedTime: article.date,
       authors: [article.author],
       tags: article.tags,
-      images: article.image ? [article.image] : undefined,
+      images: [image],
     },
     twitter: {
       card: "summary_large_image",
-      title: article.title,
-      description: article.description,
-      images: article.image ? [article.image] : undefined,
+      title,
+      description,
+      images: [image],
     },
   };
 }

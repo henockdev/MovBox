@@ -3,28 +3,38 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 /**
- * Movbox brand mark. The full wordmark ("M" + "ovbox" in lowercase
- * Cinzel + Inter) ships as `/movbox_logo_nav.png` and is loaded via
- * next/image so it's optimized + lazy-loaded. The icon-only mark
- * lives at `/movbox_icon.png` for compact spots (favicon, app icon).
+ * The Movbox brand mark.
+ *
+ * ## Why the mark alone
+ *
+ * The header used to carry a baked-in wordmark PNG — actually a JPEG with no
+ * alpha channel and about 70 % empty padding around the artwork. On a
+ * near-black header it read as a black box with a tiny logo stuck on it: the
+ * file was scaled to 42 px tall, but the logo inside it only occupied the
+ * middle 30 %, so the mark actually rendered about 12 px tall.
+ *
+ * Now the header carries the mark itself, at full size:
+ *
+ *   - the artwork is the real transparent PNG
+ *     (`assets/brand/movbox-mark.png`, built by
+ *     `scripts/make-brand-assets.py`), trimmed to its alpha bounding box, so
+ *     every pixel of the file is the logo;
+ *   - there is no black plate behind it and no second copy of the wordmark
+ *     next to it — the mark is the brand.
+ *
+ * The image is 256×229, so the width is derived from the height.
  */
 export function Logo({
   className,
   href = "/",
   size = "md",
-  variant = "wordmark",
 }: {
   className?: string;
   href?: string;
   size?: "sm" | "md" | "lg";
-  /** "wordmark" = full logo with text. "icon" = icon only. */
-  variant?: "wordmark" | "icon";
 }) {
-  const heights = {
-    sm: 30,
-    md: 42,
-    lg: 56,
-  } as const;
+  const heights = { sm: 32, md: 48, lg: 64 } as const;
+  const h = heights[size];
 
   return (
     <Link
@@ -33,13 +43,13 @@ export function Logo({
       aria-label="Movbox — Home"
     >
       <Image
-        src={variant === "icon" ? "/movbox_icon.png" : "/movbox_logo_nav.png"}
+        src="/movbox_logo_nav.png"
         alt="Movbox"
-        width={variant === "icon" ? heights[size] : heights[size] * 4}
-        height={heights[size]}
+        width={Math.round(h * 1.118)}
+        height={h}
         priority
         className="h-auto w-auto"
-        style={{ height: heights[size] }}
+        style={{ height: h }}
       />
     </Link>
   );

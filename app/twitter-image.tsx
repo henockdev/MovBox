@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { BRAND_MARK_RATIO, brandMarkDataUri } from "@/lib/brand-image";
 
 /** Smaller, square crop that Twitter's in-feed preview favors. */
 export const runtime = "nodejs";
@@ -12,6 +13,10 @@ const ACCENT = "#c4943b";
 const BG = "#0a0807";
 
 export default async function TwitterImage() {
+  const mark = brandMarkDataUri();
+  const markHeight = 76;
+  const markWidth = Math.round(markHeight * BRAND_MARK_RATIO);
+
   return new ImageResponse(
     (
       <div
@@ -45,23 +50,23 @@ export default async function TwitterImage() {
             position: "relative",
           }}
         >
+          <img
+            src={mark}
+            width={markWidth}
+            height={markHeight}
+            alt=""
+          />
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 60,
-              height: 60,
-              borderRadius: 14,
-              background: `linear-gradient(135deg, ${ACCENT}, ${BRAND})`,
-              fontSize: 32,
-              fontWeight: 800,
-              color: CREAM,
+              fontSize: 36,
+              fontWeight: 700,
+              letterSpacing: -1,
             }}
           >
-            M
+            <span style={{ color: "#f7edb9" }}>mov</span>
+            <span style={{ color: "#d7707c" }}>box</span>
           </div>
-          <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1 }}>movbox</div>
         </div>
         <div
           style={{

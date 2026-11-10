@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { HeroBanner, type HeroBannerSlide } from "@/components/home/HeroBanner";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
+import { HeroShowcase } from "@/components/home/HeroShowcase";
 import { HeroSlideStrip } from "@/components/home/HeroSlideStrip";
+import { toHeroShowcase } from "@/lib/hero";
 import { CategoryChips } from "@/components/home/CategoryChips";
 import { MovieRow } from "@/components/home/MovieRow";
 import { PromoBanner } from "@/components/home/PromoBanner";
@@ -92,30 +93,10 @@ export default async function HomePage() {
   // The app's hero: the `BANNER` block of the same /home response. The
   // upstream ships the wide 16:9 artwork plus the subject it belongs to, and
   // the app renders that as a full-bleed pager that advances on its own.
-  const heroSlides: HeroBannerSlide[] = home.heroSlides.map((s) => ({
-    href: `/${s.type}/${encodeURIComponent(s.detailPath)}`,
-    title: s.title,
-    imageUrl: s.bannerUrl,
-    meta: [s.year, s.genre.replace(/,/g, ", ")]
-      .filter(Boolean)
-      .join(" | "),
-  }));
-
+  //
   // The strip under the hero shows the SAME slides as the banner, exactly like
   // the app does — the poster is the thumbnail, the subline is "year | genre".
-  const stripItems: MediaCard[] = home.heroSlides.map((s) => ({
-    id: s.detailPath,
-    type: s.type,
-    title: s.title,
-    year: s.year,
-    rating: Number(s.rating) || 0,
-    posterPath: s.posterUrl,
-    backdropPath: s.bannerUrl,
-    overview: "",
-    subline: [s.year, s.genre.replace(/,/g, ", ")]
-      .filter(Boolean)
-      .join(" | "),
-  }));
+  const showcase = toHeroShowcase(home.heroSlides);
 
   // Filter + dedupe sections
   const seenItemSets = new Set<string>();
@@ -156,21 +137,20 @@ export default async function HomePage() {
       ) : null}
 
       {/* Hero — the app's Trending banner: a full-bleed 16:9 pager that
-          advances on its own. The poster carousel stays as the fallback for
-          the (rare) case where the upstream ships no banner block. */}
-      {heroSlides.length ? (
-        <HeroBanner slides={heroSlides} />
+          advances on its own, with the app's compact scrollable strip of the
+          same slides directly underneath. The poster carousel stays as the
+          fallback for the (rare) case where the upstream ships no banner
+          block. */}
+      {showcase.slides.length ? (
+        <HeroShowcase slides={showcase.slides} items={showcase.items} />
       ) : (
-        <HeroCarousel items={hero} />
+        <>
+          <HeroCarousel items={hero} />
+          <div className="pt-3 sm:pt-4">
+            <HeroSlideStrip items={hero} />
+          </div>
+        </>
       )}
-
-      {/* The compact scrollable strip of hero titles, directly under the
-          banner — the original app renders the same slides a second time
-          here as thin cards, and it is the app's main horizontal-scroll
-          gesture on a phone. */}
-      <div className="pt-3 sm:pt-4">
-        <HeroSlideStrip items={stripItems.length ? stripItems : hero} />
-      </div>
 
       {/* The shelves the app has and the site did not. */}
       <div className="pt-4 sm:pt-5">

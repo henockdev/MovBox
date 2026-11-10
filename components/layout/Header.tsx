@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import { Logo } from "./Logo";
 import { SearchBar } from "./SearchBar";
 import { AuthButton } from "./AuthButton";
 import { CategoriesMenu } from "./CategoriesMenu";
+import { useSearchOverlay } from "@/components/search/SearchProvider";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -30,6 +32,7 @@ const NAV = [
  */
 export function Header() {
   const pathname = usePathname();
+  const { openSearch } = useSearchOverlay();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -51,7 +54,7 @@ export function Header() {
           : "bg-gradient-to-b from-bg-deepest/80 to-transparent"
       )}
     >
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-5 px-3 sm:px-5 md:h-16 md:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-5 px-3 sm:px-5 md:px-6 lg:px-8">
         <Logo size="md" className="shrink-0" />
 
         <nav className="hidden items-center gap-0.5 md:flex">
@@ -80,6 +83,18 @@ export function Header() {
 
         <div className="ml-auto flex items-center gap-1.5 md:gap-2.5">
           <SearchBar className="hidden w-56 lg:flex" />
+          {/* Below the large breakpoint the field is hidden, so the same
+              search screen gets its own icon — otherwise a phone had no way
+              into search at all. */}
+          <button
+            type="button"
+            onClick={() => openSearch()}
+            aria-label="Search Movbox"
+            aria-haspopup="dialog"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors duration-200 hover:bg-surface-elevated hover:text-cream lg:hidden"
+          >
+            <Search className="h-[18px] w-[18px]" />
+          </button>
           <AuthButton />
         </div>
       </div>

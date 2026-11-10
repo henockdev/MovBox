@@ -105,6 +105,36 @@ class H5Error extends Error {
 }
 
 /**
+ * The statuses worth trying again.
+ *
+ * The upstream rate-limits: a burst of detail calls (a crawler walking the
+ * sitemap, a cold Vercel instance rendering many routes at once) gets HTTP
+ * 429 back. Measured: 44 requests succeeded, the next 206 were all 429.
+ * That is not a broken title — it is a temporary refusal — so it must never
+ * be answered with a 404.
+ */
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+/** Backoff before each retry. The upstream's limit window is a few seconds. */
+const RETRY_BACKOFF_MS = [500, 1500, 3000];
+
+/**
+ * Backoff with jitter.
+ *
+ * On Vercel a crawler burst is served by many instances at once. Without
+ * jitter every instance retries on the same millisecond and the upstream
+ * sees the same spike again.
+ */
+async function backoff(attempt: number) {
+  const base = RETRY_BACKOFF_MS[attempt];
+  const jitter = base * 0.25 * (Math.random() * 2 - 1);
+  await sleep(Math.max(100, Math.round(base + jitter)));
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+
+/**
  * Enforce a timeout on a promise **without** cancelling the underlying work.
  *
  * The obvious way to time out a fetch is to pass an `AbortSignal`. Next.js
@@ -139,6 +169,7 @@ async function h5Fetch(
     retried401 = false,
     timeoutMs = 12_000,
     revalidate = 600,
+    attempt = 0,
   }: {
     method?: "GET" | "POST";
     body?: unknown;
@@ -146,6 +177,8 @@ async function h5Fetch(
     timeoutMs?: number;
     /** Seconds the data cache keeps the answer. 0 disables the cache. */
     revalidate?: number;
+    /** How many times this call has already been retried. */
+    attempt?: number;
   } = {}
 ): Promise<any> {
   const token = await getToken();
@@ -182,12 +215,44 @@ async function h5Fetch(
       data = null;
     }
     if (!res.ok) {
+      // 429/5xx is a temporary refusal, not a missing title. Back off and
+      // try again — a crawler walking hundreds of detail pages would
+      // otherwise be answered with "not found" for titles that exist.
+      if (RETRYABLE_STATUS.has(res.status) && attempt < RETRY_BACKOFF_MS.length) {
+        await backoff(attempt);
+        return h5Fetch(path, {
+          method,
+          body,
+          retried401,
+          timeoutMs,
+          revalidate,
+          attempt: attempt + 1,
+        });
+      }
       throw new H5Error(
         `h5-api ${path} -> HTTP ${res.status}: ${text.slice(0, 200)}`,
         res.status
       );
     }
     if (!data || data.code !== 0) {
+      // The upstream can carry a refusal in the body code as well
+      // ({"code":429}) while answering HTTP 200. Same rule: back off and
+      // retry rather than reporting the title as missing.
+      const code = Number(data?.code);
+      if (
+        (code === 429 || code >= 500) &&
+        attempt < RETRY_BACKOFF_MS.length
+      ) {
+        await backoff(attempt);
+        return h5Fetch(path, {
+          method,
+          body,
+          retried401,
+          timeoutMs,
+          revalidate,
+          attempt: attempt + 1,
+        });
+      }
       throw new H5Error(
         `h5-api ${path} returned code=${data?.code}: ${text.slice(0, 200)}`,
         res.status
@@ -216,7 +281,21 @@ function cleanDetailPath(p: string): string {
     .replace(/^\/+/, "");
 }
 
-function mapH5ItemToCard(it: any): BoxMediaCard | null {
+/**
+ * Which upstream `subjectType` values mean "episodic, so it lives under /tv/".
+ *
+ * 2 = TV series, 5 = short TV (episodic shorts). Both have seasons and
+ * episodes, so both must resolve through the TV route — a movie watch page
+ * resolves zero sources for an episodic title.
+ *
+ * The default stays narrow (2 only) so the browse pages keep their current
+ * behaviour; the search screen passes [2, 5] because its *Short TV* tab
+ * returns subjectType 5 items.
+ */
+function mapH5ItemToCard(
+  it: any,
+  opts?: { tvSubjectTypes?: number[] }
+): BoxMediaCard | null {
   if (!it || typeof it !== "object") return null;
   const detailPath = it.detailPath || null;
   if (!detailPath) return null;
@@ -232,8 +311,9 @@ function mapH5ItemToCard(it: any): BoxMediaCard | null {
     const y = Number(String(it.releaseDate).slice(0, 4));
     if (Number.isFinite(y) && y > 1900) year = y;
   }
+  const tvTypes = opts?.tvSubjectTypes ?? [2];
   const type: "movie" | "tv" =
-    it.subjectType === 2 ? "tv" : "movie";
+    tvTypes.includes(Number(it.subjectType)) ? "tv" : "movie";
   return {
     detailPath,
     type,
@@ -907,7 +987,18 @@ export async function getBoxmoviesFilterOptions(
 // ---------------------------------------------------------------------------
 
 export interface SearchOptions {
-  subjectType?: 0 | 1 | 2 | 3;
+  /**
+   * The upstream's catalogue filter.
+   *
+   * 0 = everything, 1 = movie, 2 = TV series, 3 = music, 5 = short TV.
+   *
+   * VERIFIED live on 2026-11-09: the upstream search honours `subjectType`
+   * and nothing else — `filters.yearMin`, `genres`, `country`, `language`
+   * and `sort` all leave the result set untouched. The app's filter panel
+   * therefore applies those axes to the returned titles itself; see
+   * lib/search.ts.
+   */
+  subjectType?: 0 | 1 | 2 | 3 | 5;
   page?: number;
   perPage?: number;
 }
@@ -946,7 +1037,10 @@ export async function searchBoxmovies(
     r.data && Array.isArray(r.data.items) ? r.data.items : [];
   const pager = r.data && r.data.pager ? r.data.pager : {};
   return {
-    results: items.map(mapH5ItemToCard).filter(Boolean) as BoxMediaCard[],
+    // Short TV (subjectType 5) is episodic, so it belongs under /tv/.
+    results: items
+      .map((it) => mapH5ItemToCard(it, { tvSubjectTypes: [2, 5] }))
+      .filter(Boolean) as BoxMediaCard[],
     totalCount:
       typeof pager.totalCount === "number"
         ? pager.totalCount
@@ -1043,6 +1137,80 @@ const DETAIL_TTL_MS = 60_000;
 const DETAIL_CACHE_MAX = 500;
 const detailCache = new Map<string, { at: number; value: BoxDetail }>();
 
+/**
+ * How a detail lookup ended.
+ *
+ * The difference between "this title does not exist" and "the upstream
+ * refused the call" decides whether a URL is a 404 or a page. A crawler
+ * walking the sitemap triggers hundreds of detail calls, the upstream
+ * rate-limits them (HTTP 429), and an answer of "not found" for a title
+ * that exists is how a site ends up with hundreds of pages that look like
+ * soft 404s to a crawler.
+ */
+export type BoxDetailOutcome =
+  | { kind: "ok"; detail: BoxDetail }
+  | { kind: "missing" }
+  | { kind: "error"; reason: string };
+
+/**
+ * Look a title up and report WHY it failed.
+ *
+ * - "ok"       the upstream returned the title
+ * - "missing"  the upstream answered HTTP 404 — the title is not there
+ * - "error"    the call failed (rate limit, timeout, upstream error). The
+ *              title may well exist; the page must not claim otherwise.
+ */
+export async function getBoxmoviesDetailOutcome(
+  detailPath: string
+): Promise<BoxDetailOutcome> {
+  const clean = cleanDetailPath(detailPath);
+  const cached = detailCache.get(clean);
+  if (cached && Date.now() - cached.at < DETAIL_TTL_MS) {
+    return { kind: "ok", detail: cached.value };
+  }
+
+  try {
+    const detail = await fetchBoxmoviesDetail(clean);
+    if (detail) {
+      if (detailCache.size >= DETAIL_CACHE_MAX) {
+        const oldest = detailCache.keys().next();
+        if (!oldest.done) detailCache.delete(oldest.value);
+      }
+      detailCache.set(clean, { at: Date.now(), value: detail });
+      return { kind: "ok", detail };
+    }
+    return { kind: "missing" };
+  } catch (e: any) {
+    if (e instanceof H5Error && e.status === 404) {
+      return { kind: "missing" };
+    }
+    return {
+      kind: "error",
+      reason: e instanceof H5Error ? e.message : String(e?.message || e),
+    };
+  }
+}
+
+/**
+ * The title behind a detail path.
+ *
+ * A detail path is the title, slugified, plus a short id:
+ * "legend-of-the-white-dragon-UYKZCrlVS2a" → "Legend of the White Dragon".
+ *
+ * This is what lets a page answer with a real title even when the upstream
+ * call failed — the slug is the title the catalogue itself minted, not
+ * something invented here.
+ */
+export function titleFromDetailPath(detailPath: string): string {
+  const clean = cleanDetailPath(detailPath);
+  const withoutId = clean.replace(/-[A-Za-z0-9]{10,12}$/, "");
+  const words = withoutId
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1));
+  return words.length ? words.join(" ") : clean;
+}
+
 export async function getBoxmoviesDetail(
   detailPath: string
 ): Promise<BoxDetail | null> {
@@ -1052,7 +1220,15 @@ export async function getBoxmoviesDetail(
     return cached.value;
   }
 
-  const detail = await fetchBoxmoviesDetail(clean);
+  // Callers that only need "is there a title?" use this one: a failed
+  // lookup is null here. Callers that must tell "missing" from "failed"
+  // use getBoxmoviesDetailOutcome instead.
+  let detail: BoxDetail | null = null;
+  try {
+    detail = await fetchBoxmoviesDetail(clean);
+  } catch {
+    detail = null;
+  }
   if (detail) {
     if (detailCache.size >= DETAIL_CACHE_MAX) {
       const oldest = detailCache.keys().next();
@@ -1203,7 +1379,11 @@ async function fetchBoxmoviesDetail(
       cast: cast.filter(Boolean) as BoxDetail["cast"],
       reviews: reviews.filter(Boolean) as BoxDetail["reviews"],
     };
-  } catch {
+  } catch (e) {
+    // A transport failure (rate limit, timeout, upstream error) must reach
+    // the caller as an ERROR, not as "this title does not exist". Only an
+    // HTTP 404 from the upstream means the title is missing.
+    if (e instanceof H5Error) throw e;
     return null;
   }
 }

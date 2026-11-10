@@ -239,6 +239,13 @@ sudo systemctl reload nginx
 | 2026-08-27 | Player showed 60s preview | `/api/video-proxy` sets `Referer: https://boxmovies.org/` so the CDN serves the full video |
 | 2026-08-27 | Subtitle CORS errors | `/api/subtitle-proxy` rewrites SRT/VTT URLs through Next.js with correct Referer |
 | 2026-08-27 | Background task wrapper killed node processes at 30 min | Switched to `Start-Process` for detached processes |
+| 2026-11-09 | Watch pages served **three** `<h1>`s (the loader rendered its own heading on top of the page's) | `PageLoader`'s big label is a `<p>` now; the page keeps the only `<h1>` |
+| 2026-11-09 | A crawler burst made h5-api answer **429**, and the `catch { return null }` turned those into "not found" — hundreds of live titles served as an empty 200 | `h5Fetch()` retries 429/5xx with a jittered backoff; `getBoxmoviesDetailOutcome()` separates `missing` from `error`; a refused call renders the title from the URL instead of a 404 |
+| 2026-11-09 | **Every 404 in the site answered HTTP 200 with an empty body** | The root `app/loading.tsx` is a Suspense boundary, so the shell flushed before `notFound()` could set the status. Removed it; `/login` and `/watch/tv/[id]` got their own `<Suspense>` for `useSearchParams()` |
+| 2026-11-09 | Title cap was 52, but the template suffix is 9 chars → the rendered title hit 61 | `MAX_TEMPLATE_TITLE = 60 − 9 = 51`, applied centrally in `pageSeo()` |
+| 2026-11-09 | Descriptions under 120 chars were never fixed — `clampDescription()` could only shorten | The clamp now *extends* a short description with one site-level tail; it is idempotent, and the pages no longer pre-clamp before `pageSeo()` |
+| 2026-11-09 | `clampTitle()` stripped **any** trailing parenthetical ("Why We Built Movbox (And Why It's Free)" → "Why We Built Movbox") | It now only strips a trailing language/dub tag, and never one that contains a year |
+| 2026-11-09 | The sitemap had no `/genres/<id>` URL — the generator asked TMDB, and TMDB_API_KEY is unset | The generator reads the genre ids out of `lib/genres.ts` |
 
 ---
 

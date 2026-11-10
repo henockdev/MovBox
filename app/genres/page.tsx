@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { getMovieGenres, getTVGenres } from "@/lib/tmdb";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
+import { GENRE_PAGES } from "@/lib/genres";
 import { pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
@@ -25,26 +25,15 @@ export const metadata: Metadata = pageSeo({
 });
 
 export default async function GenresPage() {
-  const [movieGenres, tvGenres] = await Promise.all([
-    getMovieGenres().catch(() => ({ genres: [] })),
-    getTVGenres().catch(() => ({ genres: [] })),
-  ]);
-
-  // Merge: show all unique genres with their respective ids
-  const allGenres = new Map<
-    number,
-    { id: number; name: string; movie: boolean; tv: boolean }
-  >();
-  for (const g of movieGenres.genres) {
-    allGenres.set(g.id, { id: g.id, name: g.name, movie: true, tv: false });
-  }
-  for (const g of tvGenres.genres) {
-    const existing = allGenres.get(g.id);
-    if (existing) existing.tv = true;
-    else allGenres.set(g.id, { id: g.id, name: g.name, movie: false, tv: true });
-  }
-  const genres = Array.from(allGenres.values()).sort((a, b) =>
-    a.name.localeCompare(b.name)
+  // This page used to read the TMDB genre list. Without TMDB_API_KEY it
+  // rendered an EMPTY grid, so /genres was a page that linked to nothing and
+  // the 18 genre pages below it were unreachable — they were the orphans the
+  // Ahrefs audit counted.
+  //
+  // The genre list is now the site's own, and it is the same list the genre
+  // pages are built from, so every genre page is linked from here.
+  const genres = [...GENRE_PAGES].sort((a, b) =>
+    a.title.localeCompare(b.title)
   );
 
   return (
@@ -59,8 +48,9 @@ export default async function GenresPage() {
         <h1 className="font-display text-3xl font-bold text-cream md:text-4xl">
           Genres
         </h1>
-        <p className="mt-2 text-sm text-text-secondary md:text-base">
-          Pick a genre to discover new favorites.
+        <p className="mt-2 max-w-2xl text-sm text-text-secondary md:text-base">
+          Pick a genre to discover new favourites — every collection is served
+          from the Movbox catalogue, so every title below streams free in HD.
         </p>
       </header>
 
@@ -83,11 +73,9 @@ export default async function GenresPage() {
             <Sparkles className="absolute right-3 top-3 h-4 w-4 text-cream/30 transition-transform group-hover:scale-125 group-hover:text-cream" />
             <div className="relative">
               <h2 className="font-display text-lg font-semibold text-cream">
-                {g.name}
+                {g.title}
               </h2>
-              <p className="mt-0.5 text-xs text-cream/60">
-                {g.movie && g.tv ? "Movies & TV" : g.movie ? "Movies" : "TV"}
-              </p>
+              <p className="mt-0.5 text-xs text-cream/60">Movies &amp; TV</p>
             </div>
           </Link>
         ))}

@@ -3,17 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { HeroBannerSlide } from "@/lib/hero";
 import { cn } from "@/lib/utils";
 
-export interface HeroBannerSlide {
-  /** Where the slide links to. */
-  href: string;
-  title: string;
-  /** The 16:9 banner artwork. */
-  imageUrl: string | null;
-  /** The line under the title, e.g. "2026 | Action". */
-  meta?: string;
-}
+export type { HeroBannerSlide };
 
 interface HeroBannerProps {
   slides: HeroBannerSlide[];
@@ -27,6 +20,16 @@ interface HeroBannerProps {
    * document still has exactly one `<h1>`.
    */
   headingLevel?: "h1" | "h2";
+  /**
+   * Controlled active slide.
+   *
+   * When this is supplied the banner is driven from the outside — that is
+   * how the strip under it becomes the pager control, exactly as it is in
+   * the app, where the banner and the strip share one carousel state.
+   */
+  activeIndex?: number;
+  /** Told whenever the visible slide changes, however it changed. */
+  onActiveChange?: (index: number) => void;
   className?: string;
 }
 
@@ -56,15 +59,37 @@ export function HeroBanner({
   slides,
   interval = 5000,
   headingLevel = "h1",
+  activeIndex,
+  onActiveChange,
   className,
 }: HeroBannerProps) {
   const count = slides.length;
   const trackRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dragging = useRef(false);
-  const [active, setActive] = useState(0);
+  const [internalActive, setInternalActive] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+
+  const controlled = typeof activeIndex === "number";
+  const active = controlled ? (activeIndex as number) : internalActive;
+
+  /**
+   * The slide the visitor can actually see right now.
+   *
+   * The observer writes it; the "follow the controlled index" effect reads it
+   * to decide whether a scroll is still needed. Without it, a swipe would be
+   * fought by the effect that scrolls to the requested slide.
+   */
+  const viewRef = useRef(0);
+
+  const setActive = useCallback(
+    (index: number) => {
+      if (!controlled) setInternalActive(index);
+      onActiveChange?.(index);
+    },
+    [controlled, onActiveChange]
+  );
 
   const scrollTo = useCallback((index: number, smooth: boolean) => {
     const track = trackRef.current;
@@ -87,7 +112,10 @@ export function HeroBanner({
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
           const index = Number((entry.target as HTMLElement).dataset.index);
-          if (Number.isFinite(index)) setActive(index);
+          if (Number.isFinite(index)) {
+            viewRef.current = index;
+            setActive(index);
+          }
         }
       },
       { root: track, threshold: 0.6 }
@@ -95,7 +123,17 @@ export function HeroBanner({
 
     for (const el of slideRefs.current) if (el) observer.observe(el);
     return () => observer.disconnect();
-  }, [count]);
+  }, [count, setActive]);
+
+  // Follow a slide requested from outside — the strip under the banner, or
+  // the dots. A swipe is never fought: the observer has already moved
+  // `viewRef` by then, so the effect does nothing.
+  useEffect(() => {
+    if (!controlled) return;
+    const index = activeIndex as number;
+    if (index === viewRef.current) return;
+    scrollTo(index, true);
+  }, [controlled, activeIndex, scrollTo]);
 
   // Auto-advance. The timer restarts on every slide change, so each slide gets
   // its own full interval.
@@ -112,11 +150,24 @@ export function HeroBanner({
       // while the tab is in the background.
       if (dragging.current) return;
       if (document.hidden) return;
-      scrollTo((active + 1) % count, true);
+      setActive((active + 1) % count);
     }, interval);
 
     return () => window.clearInterval(id);
-  }, [active, count, focused, hovered, interval, scrollTo]);
+  }, [active, count, focused, hovered, interval, setActive]);
+
+  // Jump to a slide — used by the dots and by the strip.
+  const goTo = useCallback(
+    (index: number) => {
+      if (controlled) {
+        setActive(index);
+      } else {
+        setInternalActive(index);
+        scrollTo(index, true);
+      }
+    },
+    [controlled, scrollTo, setActive]
+  );
 
   if (!count) return null;
 
@@ -211,7 +262,7 @@ export function HeroBanner({
             <button
               key={`dot-${i}`}
               type="button"
-              onClick={() => scrollTo(i, true)}
+              onClick={() => goTo(i)}
               aria-label={`Show ${slide.title}`}
               aria-current={i === active ? "true" : undefined}
               className={cn(

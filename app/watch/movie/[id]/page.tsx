@@ -5,10 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { WatchView } from "@/components/watch/WatchView";
 import { WatchJsonLd } from "@/components/seo/WatchJsonLd";
-import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
+import { getBoxmoviesDetailOutcome, getBoxmoviesRelated, titleFromDetailPath } from "@/lib/data";
+import { DetailUnavailable } from "@/components/detail/DetailUnavailable";
 import { toMediaCard } from "@/lib/adapters";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
-import { clampDescription, pageSeo } from "@/lib/seo";
+import { detailTitle, pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -20,8 +21,9 @@ export async function generateMetadata({
   params,
 }: WatchMoviePageProps): Promise<Metadata> {
   const { id } = await params;
-  const details = await getBoxmoviesDetail(id).catch(() => null);
-  if (!details) {
+  const outcome = await getBoxmoviesDetailOutcome(id);
+
+  if (outcome.kind === "missing") {
     return pageSeo({
       path: `/watch/movie/${encodeURIComponent(id)}`,
       title: "Watch",
@@ -30,16 +32,33 @@ export async function generateMetadata({
     });
   }
 
-  const description = clampDescription(
-    details.synopsis || `Stream ${details.title} on ${SITE_NAME}.`
-  );
+  if (outcome.kind === "error") {
+    // The catalogue refused the call. The title is in the URL, so the page
+    // keeps its identity instead of answering "not found" for a movie that
+    // exists.
+    const title = titleFromDetailPath(id);
+    return pageSeo({
+      path: `/watch/movie/${encodeURIComponent(id)}`,
+      title: detailTitle(`Watch ${title}`, "movie"),
+      description: `Watch ${title} free on ${SITE_NAME} in HD. Full movies and new titles added daily — stream ${title} and thousands more online.`,
+      image: "/opengraph-image",
+      imageWidth: 1200,
+      imageHeight: 630,
+    });
+  }
+
+  const details = outcome.detail;
+
+  // The raw synopsis — pageSeo() is what clamps it into the 120-160 band,
+  // so clamping it here as well would append the description's tail twice.
+  const description = details.synopsis || `Stream ${details.title} on ${SITE_NAME}.`;
 
   return pageSeo({
     path: `/watch/movie/${encodeURIComponent(details.detailPath)}`,
-    title: `Watch ${details.title}`,
+    title: detailTitle(`Watch ${details.title}`, "movie"),
     description,
     type: "video.movie",
-    image: details.backdropUrl ?? details.posterUrl,
+    image: details.backdropUrl || details.posterUrl || "/opengraph-image",
     imageWidth: 1280,
     imageHeight: 720,
     keywords: [details.title, "watch online", "full movie", "free streaming"].filter(
@@ -50,8 +69,19 @@ export async function generateMetadata({
 
 export default async function WatchMoviePage({ params }: WatchMoviePageProps) {
   const { id } = await params;
-  const details = await getBoxmoviesDetail(id).catch(() => null);
-  if (!details) notFound();
+  const outcome = await getBoxmoviesDetailOutcome(id);
+
+  if (outcome.kind === "missing") notFound();
+
+  if (outcome.kind === "error") {
+    return (
+      <div className="bg-bg-deepest">
+        <DetailUnavailable title={titleFromDetailPath(id)} kind="movie" />
+      </div>
+    );
+  }
+
+  const details = outcome.detail;
 
   // If boxmovies says this is actually a TV show, redirect to the TV route.
   if (details.kind === "tv") {

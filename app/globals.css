@@ -233,6 +233,32 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   The search panel
+   The app's search screen pops over the page rather than replacing it, so it
+   needs its own entrance: it settles in from slightly above, the way a
+   sheet comes down over the content behind it.
+   --------------------------------------------------------------------------- */
+@keyframes searchPop {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.search-pop {
+  animation: searchPop 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-pop {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Ad layout reservations
    ---------------------------------------------------------------------------
    Third-party ad units are unversioned and can change size or position at
