@@ -55,6 +55,22 @@ const MARKERS = [
       html.includes("Action Movies &amp; TV Shows") &&
       html.includes('property="og:image"'),
   },
+  {
+    // The trailer preview: each card carries the trailer button and the
+    // card itself carries the trailer URL the popup plays.
+    name: "Trailer preview on the cards",
+    path: "/movies",
+    test: (html) =>
+      html.includes("Play the trailer for") && html.includes("macdn.aoneroom.com"),
+  },
+  {
+    // The mobile nav drawer trigger in the header.
+    name: "Mobile nav drawer button",
+    path: "/movies",
+    test: (html) =>
+      html.includes('aria-label="Open the navigation menu"') &&
+      html.includes('aria-haspopup="dialog"'),
+  },
 ];
 
 // One fetch per distinct path, reused across the markers that need it.
