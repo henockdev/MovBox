@@ -58,6 +58,7 @@ export function HeroSlideStrip({
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [stripVisible, setStripVisible] = useState(false);
 
   // Edge fades and the arrow buttons both need to know where we are.
   const syncEdges = useCallback(() => {
@@ -80,17 +81,56 @@ export function HeroSlideStrip({
     };
   }, [syncEdges, items.length]);
 
+  // Is the strip on screen? A strip the visitor cannot see has no business
+  // scrolling itself, and — more importantly — it must not touch the page.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setStripVisible(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Follow the banner: bring the live card into view.
+  //
+  // ## Why this scrolls the track and not the window
+  //
+  // The obvious implementation is `card.scrollIntoView(...)`, but that scrolls
+  // EVERY scrollable ancestor — including the window. The strip sits at the
+  // top of the page, so the moment the banner auto-advanced while the visitor
+  // had scrolled past the hero, `scrollIntoView` dragged the whole page back
+  // up to the strip. It felt like the site was fighting the scroll.
+  //
+  // So the strip moves ITSELF: the horizontal offset is computed from the
+  // card's rect and applied to the track with `scrollTo`. The window is never
+  // touched.
+  //
+  // The strip also does not move at all while it is off-screen — there is
+  // nothing to look at up there, and moving a row the visitor cannot see only
+  // wastes a frame.
   useEffect(() => {
     if (typeof activeIndex !== "number") return;
+    if (!stripVisible) return;
+    const el = trackRef.current;
     const card = cardRefs.current[activeIndex];
-    if (!card) return;
-    card.scrollIntoView({
+    if (!el || !card) return;
+
+    const trackRect = el.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    // How far the card has to travel to sit in the middle of the track.
+    const delta =
+      cardRect.left - trackRect.left - (el.clientWidth - cardRect.width) / 2;
+    if (Math.abs(delta) < 2) return;
+
+    const max = el.scrollWidth - el.clientWidth;
+    el.scrollTo({
+      left: Math.max(0, Math.min(el.scrollLeft + delta, max)),
       behavior: "smooth",
-      inline: "center",
-      block: "nearest",
     });
-  }, [activeIndex]);
+  }, [activeIndex, stripVisible]);
 
   const scrollByCards = useCallback((direction: 1 | -1) => {
     const el = trackRef.current;

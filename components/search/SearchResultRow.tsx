@@ -1,9 +1,17 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { Clapperboard, Star } from "lucide-react";
 import { imageUrl } from "@/lib/image";
 import { genreList } from "@/lib/search";
 import type { SearchCard } from "@/lib/search";
+import {
+  HoverPreview,
+  useHoverPreview,
+} from "@/components/media/HoverPreview";
+import { TrailerSheet } from "@/components/media/TrailerSheet";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,6 +55,8 @@ export function SearchResultRow({
       ? `/movie/${encodeURIComponent(card.id)}`
       : `/tv/${encodeURIComponent(card.id)}`;
   const poster = imageUrl(card.posterUrl, "w342");
+  const preview = useHoverPreview<HTMLAnchorElement>();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const meta = [
     card.year ? String(card.year) : "",
@@ -56,34 +66,76 @@ export function SearchResultRow({
     .filter(Boolean)
     .join(" | ");
 
+  // The same shape the preview panel reads.
+  const previewMedia = {
+    id: card.id,
+    type: card.type,
+    title: card.title,
+    year: card.year ? String(card.year) : "",
+    rating: card.rating ?? 0,
+    posterPath: card.posterUrl,
+    backdropPath: card.backdropUrl,
+    trailerUrl: card.trailerUrl ?? null,
+    trailerPosterUrl: card.trailerPosterUrl ?? null,
+    country: card.country || null,
+    genres: genreList(card),
+  };
+
   return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex items-center gap-3 rounded-xl px-1.5 py-2 transition-colors duration-200 hover:bg-surface/80 sm:gap-4 sm:px-2",
-        className
-      )}
-    >
-      <div className="relative h-[81px] w-[54px] shrink-0 overflow-hidden rounded-lg bg-card-burgundy shadow-card ring-1 ring-border/60 transition-all duration-300 group-hover:ring-accent/60 sm:h-[90px] sm:w-[60px]">
-        {poster ? (
-          <Image
-            src={poster}
-            alt=""
-            fill
-            sizes="60px"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center font-display text-[9px] text-cream/40">
-            Movbox
-          </span>
+    <>
+      <div
+        className={cn(
+          "group flex items-center gap-3 rounded-xl px-1.5 py-2 transition-colors duration-200 hover:bg-surface/80 sm:gap-4 sm:px-2",
+          className
         )}
-        <span className="absolute left-1 top-1">
-          <RankBadge rank={rank} />
-        </span>
+        data-trailer-open={sheetOpen ? "1" : "0"}
+      >
+      <div className="relative h-[81px] w-[54px] shrink-0 overflow-hidden rounded-lg bg-card-burgundy shadow-card ring-1 ring-border/60 transition-all duration-300 group-hover:ring-accent/60 sm:h-[90px] sm:w-[60px]">
+        <Link
+          href={href}
+          ref={preview.anchorRef}
+          onMouseEnter={preview.openNow}
+          onMouseLeave={preview.closeSoon}
+          className="block h-full w-full"
+        >
+          {poster ? (
+            <Image
+              src={poster}
+              alt=""
+              fill
+              sizes="60px"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center font-display text-[9px] text-cream/40">
+              Movbox
+            </span>
+          )}
+          <span className="absolute left-1 top-1">
+            <RankBadge rank={rank} />
+          </span>
+        </Link>
+        {/* The trailer button — coarse pointers only (a phone has no hover).
+            It sits OUTSIDE the link: a button inside an anchor is invalid
+            HTML, and browsers are free to swallow the click. */}
+        {card.trailerUrl && (
+          <button
+            type="button"
+            aria-label={`Play the trailer for ${card.title}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              preview.closeSoon();
+              setSheetOpen(true);
+            }}
+            className="pointer-coarse:flex max-md:flex absolute bottom-1 right-1 z-20 hidden h-6 w-6 items-center justify-center rounded-full bg-black/65 text-cream backdrop-blur-sm transition-transform active:scale-90"
+          >
+            <Clapperboard className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
-      <div className="min-w-0 flex-1">
+      <Link href={href} className="min-w-0 flex-1">
         <h3 className="truncate text-[14px] font-semibold text-cream transition-colors group-hover:text-vanilla sm:text-[15px]">
           {card.title}
         </h3>
@@ -100,7 +152,24 @@ export function SearchResultRow({
             </p>
           ) : null}
         </div>
+      </Link>
       </div>
-    </Link>
+
+      {/* The trailer preview (desktop) and the trailer sheet (mobile). */}
+      <HoverPreview
+        media={previewMedia}
+        anchorRef={preview.anchorRef}
+        open={preview.open}
+        onPanelEnter={preview.cancelClose}
+        onPanelLeave={preview.closeSoon}
+      />
+      {sheetOpen && (
+        <TrailerSheet
+          media={previewMedia}
+          open
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
+    </>
   );
 }

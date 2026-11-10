@@ -246,6 +246,25 @@ sudo systemctl reload nginx
 | 2026-11-09 | Descriptions under 120 chars were never fixed — `clampDescription()` could only shorten | The clamp now *extends* a short description with one site-level tail; it is idempotent, and the pages no longer pre-clamp before `pageSeo()` |
 | 2026-11-09 | `clampTitle()` stripped **any** trailing parenthetical ("Why We Built Movbox (And Why It's Free)" → "Why We Built Movbox") | It now only strips a trailing language/dub tag, and never one that contains a year |
 | 2026-11-09 | The sitemap had no `/genres/<id>` URL — the generator asked TMDB, and TMDB_API_KEY is unset | The generator reads the genre ids out of `lib/genres.ts` |
+| 2026-11-21 | **Scrolling down yanked the page back up to the hero.** `HeroSlideStrip` followed the auto-advancing banner with `scrollIntoView({ inline: "center" })` — `scrollIntoView` scrolls *every* scrollable ancestor, including the window, so each 5-second slide change re-scrolled the whole document up to the hero | The strip now scrolls its own track with `track.scrollTo({ left })` computed from `getBoundingClientRect()` deltas, and an `IntersectionObserver` stops it entirely when the strip is off-screen. `HeroBanner` also pauses its auto-advance when the hero is not in view |
+| 2026-11-21 | **The mobile trailer button did nothing.** The `<button>` was a child of the card `<Link>` — invalid HTML, and the browser swallowed the click (the `onClick` never ran) | The trailer button is now a **sibling** of the link, not a child, in `MovieCard` and `SearchResultRow`. A `<button>` inside an `<a>` is never allowed |
+| 2026-11-21 | **Hovering a card on the homepage did nothing** — the home rows used a different card converter that dropped the trailer | One converter for the whole site: `lib/cards.ts` `toMediaCard()` carries `trailerUrl`/`trailerPosterUrl`/`country`/`genres`; `lib/adapters.ts` re-exports it and `/trending` + `/most-watched` import from `@/lib/cards` |
+
+---
+
+## The trailer preview (2026-11-21)
+
+The card popup the owner asked for, taken from the app's own `PreviewStage`.
+
+- **Desktop** — `components/media/HoverPreview.tsx`. A portal to `<body>` (so the scroll rows never clip it), positioned from the card's `getBoundingClientRect()`, above the card and falling back below when there is no room. 380 px wide, 16:9, muted autoplay loop with the trailer's own poster, a mute toggle, a progress line, the title, `★ rating · year · country · genres`, and Play + Details links. `useHoverPreview()` opens it only on `(hover: hover) and (pointer: fine)`, with a 250 ms close grace so the pointer can travel into the panel, and Escape closes it.
+- **Mobile** — `components/media/TrailerSheet.tsx`. A bottom sheet (portal, blurred backdrop, drag handle, swipe-down to dismiss, body scroll lock, Escape) with the same trailer, meta and links.
+- **Where the trailer comes from** — `trailer.videoAddress.url` and `trailer.cover.url` on the list endpoints (`/home`, `/subject/filter`), present on 85–95 % of items. `macdn.aoneroom.com` serves the MP4 directly (HTTP 200, `video/mp4`, **no Referer needed**), so the trailer is a plain `<video src>` and the bytes never touch Vercel.
+- **Zero extra upstream calls** — the trailer rides on the card the list endpoint already returned.
+- `app/globals.css` carries the keyframes (`previewPop`, `sheetUp`, `backdropIn`, `drawerIn`). There is no `tailwindcss-animate` plugin in this project, so `animate-in …` classes do nothing — use the hand-written classes.
+
+## The mobile nav drawer (2026-11-21)
+
+`components/layout/MobileDrawer.tsx` — a portal to `<body>` (`role="dialog"`, `aria-modal`, `z-[95]`), a panel that slides in from the left at 86 % width (max 340 px), a blurred backdrop, an X close button, Escape to close, body scroll lock, closes on route change, and highlights the active route. Sections: **Primary** (Home, Trending, Rankings, Movies, TV Shows, Animations, Most Watched, Genres, Movbox App), **Categories** (the 8 from `lib/categories.ts`), **Account** (Sign In, My List, Settings), **Company** (About, Blog, Contact, Privacy, Terms). The header carries the `md:hidden` dash button (`aria-label="Open the navigation menu"`).
 
 ---
 

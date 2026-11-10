@@ -67,12 +67,31 @@ export function HeroBanner({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dragging = useRef(false);
+  const sectionRef = useRef<HTMLElement | null>(null);
   const [internalActive, setInternalActive] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
 
   const controlled = typeof activeIndex === "number";
   const active = controlled ? (activeIndex as number) : internalActive;
+  const [inView, setInView] = useState(true);
+
+  // Is the banner on screen?
+  //
+  // A carousel that nobody can see has no reason to keep moving — and every
+  // advance changes the strip below it, which is a change the visitor does
+  // not need to see. Pausing off-screen also keeps the banner from nudging
+  // the strip while the visitor has scrolled down to the catalogue.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   /**
    * The slide the visitor can actually see right now.
@@ -140,6 +159,7 @@ export function HeroBanner({
   useEffect(() => {
     if (count <= 1) return;
     if (hovered || focused) return;
+    if (!inView) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)")
       .matches;
@@ -154,7 +174,7 @@ export function HeroBanner({
     }, interval);
 
     return () => window.clearInterval(id);
-  }, [active, count, focused, hovered, interval, setActive]);
+  }, [active, count, focused, hovered, inView, interval, setActive]);
 
   // Jump to a slide — used by the dots and by the strip.
   const goTo = useCallback(
@@ -173,6 +193,7 @@ export function HeroBanner({
 
   return (
     <section
+      ref={sectionRef}
       aria-label="Featured titles"
       className={cn(
         "relative w-full overflow-hidden bg-card-burgundy",

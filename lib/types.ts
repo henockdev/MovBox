@@ -75,6 +75,18 @@ export interface BoxMediaCard {
   genre?: string;
   /** The upstream's country name, e.g. "United States". */
   country?: string;
+  /**
+   * The title's own trailer — a real, per-title MP4 on
+   * `macdn.aoneroom.com/media/vone/…`.
+   *
+   * The LIST endpoints publish it (verified on `/subject/filter`: every
+   * sampled item carried `trailer.videoAddress.url`), so the hover preview
+   * needs no extra upstream call and no detail lookup. The app's own
+   * reference does the same thing from the H5 BFF.
+   */
+  trailerUrl?: string | null;
+  /** The poster frame of that trailer. */
+  trailerPosterUrl?: string | null;
 }
 
 /**
@@ -208,6 +220,19 @@ export interface MediaCard {
    * back to, because the app's own strip shows the title's genres.
    */
   subline?: string;
+  /**
+   * The title's own trailer MP4, for the hover preview.
+   *
+   * It comes straight from the list response — no detail lookup, no extra
+   * upstream call, so hovering a card costs nothing but the video.
+   */
+  trailerUrl?: string | null;
+  /** The poster frame of that trailer. */
+  trailerPosterUrl?: string | null;
+  /** The upstream's country name, e.g. "France". */
+  country?: string | null;
+  /** The upstream's genres, split out of its comma-separated string. */
+  genres?: string[];
 }
 
 /** Available filter axes for /movies, /tv, /animations browse pages. */

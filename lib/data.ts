@@ -314,6 +314,17 @@ function mapH5ItemToCard(
   const tvTypes = opts?.tvSubjectTypes ?? [2];
   const type: "movie" | "tv" =
     tvTypes.includes(Number(it.subjectType)) ? "tv" : "movie";
+  // The list endpoints publish the title's own trailer — a per-title MP4 on
+  // macdn.aoneroom.com. This is what the hover preview plays, and it costs
+  // no extra upstream call.
+  const trailerUrl =
+    it.trailer && it.trailer.videoAddress && it.trailer.videoAddress.url
+      ? it.trailer.videoAddress.url
+      : null;
+  const trailerPosterUrl =
+    it.trailer && it.trailer.cover && it.trailer.cover.url
+      ? it.trailer.cover.url
+      : null;
   return {
     detailPath,
     type,
@@ -325,6 +336,8 @@ function mapH5ItemToCard(
     overview: it.description || "",
     genre: typeof it.genre === "string" ? it.genre : "",
     country: typeof it.countryName === "string" ? it.countryName : "",
+    trailerUrl,
+    trailerPosterUrl,
   };
 }
 

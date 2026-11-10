@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Menu } from "lucide-react";
 import { Logo } from "./Logo";
 import { SearchBar } from "./SearchBar";
 import { AuthButton } from "./AuthButton";
 import { CategoriesMenu } from "./CategoriesMenu";
+import { MobileDrawer } from "./MobileDrawer";
 import { useSearchOverlay } from "@/components/search/SearchProvider";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ export function Header() {
   const pathname = usePathname();
   const { openSearch } = useSearchOverlay();
   const [scrolled, setScrolled] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     function onScroll() {
@@ -55,6 +57,20 @@ export function Header() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-5 px-3 sm:px-5 md:px-6 lg:px-8">
+        {/* The drawer toggle. Below md the top nav is gone, so the dash is the
+            only way into Trending, Rankings, Genres, the categories and the
+            company pages from a phone. */}
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open the navigation menu"
+          aria-haspopup="dialog"
+          aria-expanded={drawerOpen}
+          className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-text-secondary transition-colors duration-200 hover:bg-surface-elevated hover:text-cream md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
         <Logo size="md" className="shrink-0" />
 
         <nav className="hidden items-center gap-0.5 md:flex">
@@ -98,6 +114,10 @@ export function Header() {
           <AuthButton />
         </div>
       </div>
+
+      {/* The mobile navigation drawer. Mounted here so the button that opens
+          it and the panel itself live in one place. */}
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </header>
   );
 }

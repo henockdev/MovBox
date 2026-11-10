@@ -89,6 +89,13 @@ export interface SearchCard {
   genre: string;
   /** The upstream's country name, e.g. "United States". */
   country: string;
+  /**
+   * The title's own trailer, when the upstream publishes one on the search
+   * response — the hover popup and the mobile sheet play it.
+   */
+  trailerUrl?: string | null;
+  /** The poster frame of that trailer. */
+  trailerPosterUrl?: string | null;
 }
 
 /**
@@ -108,6 +115,8 @@ export function toSearchCard(card: BoxMediaCard): SearchCard {
     backdropUrl: card.backdropUrl,
     genre: card.genre ?? "",
     country: card.country ?? "",
+    trailerUrl: card.trailerUrl ?? null,
+    trailerPosterUrl: card.trailerPosterUrl ?? null,
   };
 }
 

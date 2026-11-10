@@ -6,7 +6,7 @@ import { toHeroShowcase } from "@/lib/hero";
 import { getBoxmoviesHeroBanner, getBoxmoviesTrending } from "@/lib/data";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { pageSeo } from "@/lib/seo";
-import type { MediaCard } from "@/lib/types";
+import { toMediaCard } from "@/lib/cards";
 
 export const revalidate = 1800; // 30 min
 
@@ -27,27 +27,9 @@ export const metadata: Metadata = pageSeo({
   ],
 });
 
-function toMediaCard(c: {
-  detailPath: string;
-  type: "movie" | "tv";
-  title: string;
-  year: number | null;
-  rating: number | null;
-  posterUrl: string | null;
-  backdropUrl: string | null;
-  overview: string;
-}): MediaCard {
-  return {
-    id: c.detailPath,
-    type: c.type,
-    title: c.title,
-    year: c.year?.toString() ?? "",
-    rating: c.rating ?? 0,
-    posterPath: c.posterUrl,
-    backdropPath: c.backdropUrl,
-    overview: c.overview,
-  };
-}
+// The card conversion lives in lib/cards.ts — one converter for the whole
+// site, so every screen carries the same fields (including the trailer
+// the hover preview plays).
 
 export default async function TrendingPage() {
   // Pull a generous batch, slice into themed rows.
