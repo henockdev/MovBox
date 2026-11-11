@@ -25,7 +25,8 @@ const MARKERS = [
     name: "HeroBanner scroll track",
     path: "/movies",
     test: (html) =>
-      html.includes("snap-mandatory") && html.includes('aria-label="Show '),
+      html.includes("snap-mandatory") &&
+      html.includes('aria-label="Scroll the featured titles left"'),
   },
   {
     name: "Ranking shelf chips",
