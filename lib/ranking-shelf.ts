@@ -86,12 +86,19 @@ export function selectRankingGroups(
 /**
  * Turn ranking groups into the compact shape the shelf renders.
  *
- * `perGroup` caps how many ranked titles the shelf shows; the full list is
- * one click away on the group's own page.
+ * The shelf shows the group's FULL list, exactly like the app does — the
+ * app's `RankingSectionView` renders `group?.items.orEmpty()` with no cap
+ * at all. Capping the row at a fixed number was wrong twice over: the
+ * chip beside the group's name advertises the real count (the upstream's
+ * own `allEp`), so a capped row contradicted its own label, and the
+ * upstream groups hold 15–20 titles, not 12.
+ *
+ * `perGroup` stays as a safety valve for a pathological group, but the
+ * default is "as many as the upstream published".
  */
 export function toShelfGroups(
   groups: BoxRankingGroup[],
-  perGroup = 12
+  perGroup = Number.POSITIVE_INFINITY
 ): RankingShelfGroup[] {
   return groups.map((g) => ({
     slug: g.slug,

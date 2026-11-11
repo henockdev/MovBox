@@ -532,6 +532,10 @@ When the user comes back and says "continue":
 
 ## Known gotchas
 
+- **The IndexNow key file must be LIVE before you submit.** `scripts/submit-indexnow.mjs` POSTs to `https://api.indexnow.org/indexnow`. If the key file is not yet reachable at its `keyLocation`, the endpoint answers **403**. `scripts/wait-for-indexnow-key.mjs` polls for it.
+- **The sitemap XML-escapes `&` as `&amp;`.** The episode URLs carry `?s=1&e=10`; in the XML that is written `?s=1&amp;e=10`. IndexNow wants the raw URL — submitting the escaped form would push 18,263 URLs that do not exist. `scripts/submit-indexnow.mjs` decodes the entities before sending.
+- **IndexNow bulk limit is 10,000 URLs per POST.** The site has 24,610. The script splits them into batches and sleeps 10 s between them. A **429** means "too many requests, potential spam" — the script backs off (30 s, 60 s, 90 s) and retries the same batch rather than dropping those URLs.
+- **A key file at the ROOT of the host covers the whole host.** A key file in a subdirectory only covers URLs under that directory (IndexNow Option 2). Ours is at the root, so every URL qualifies.
 - **The 60s preview vs full-movie CDN** — boxmovies.org uses different CDN signed URLs for preview (60s) vs full stream. The relay adds `Referer: https://boxmovies.org/` to every media request, which is what unlocks the full stream. Don't bypass the relay or you'll get 60-second videos.
 - **Subject IDs are huge integers** (e.g. `8352681232614545872`). Use `detailPath` as the key in the frontend, not subjectId. The slug format is `<title>-<random10char>`.
 - **boxmovies.org sometimes returns 404 for valid slugs** — it's a CDN race. The browser will retry automatically via the next /api/* call.
@@ -552,4 +556,6 @@ When the user comes back and says "continue":
 - **One card converter for the whole site.** `lib/cards.ts` `toMediaCard()` is the only one; `lib/adapters.ts` re-exports it. A second converter that drops a field (the trailer, once) silently breaks a feature on the pages that use it — the homepage had no trailer for exactly this reason.
 - **The trailers come straight from `macdn.aoneroom.com`.** No Referer, no proxy, no Vercel bytes. `trailer.videoAddress.url` and `trailer.cover.url` are already on the list-endpoint payloads (`/home`, `/subject/filter`), so the preview costs zero extra upstream calls.
 - **There is no `tailwindcss-animate` in this project.** `animate-in …` / `fade-in-0` classes do nothing. The animations live in `app/globals.css` as hand-written keyframes (`previewPop`, `sheetUp`, `backdropIn`, `drawerIn`).
+- **The ranking shelf shows the WHOLE group — do not cap it.** The chip beside the ranked row carries the upstream's own count (10–20), so a truncated row contradicts its own label. `scripts/verify-ranking-shelf.mjs` compares the two and fails the build check if they disagree.
+- **The IndexNow key file must be LIVE before you submit.** `scripts/submit-indexnow.mjs` POSTs to `https://api.indexnow.org/indexnow`. If the key file is not yet reachable at its `keyLocation`, the endpoint answers **403**. `scripts/wait-for-indexnow-key.mjs` polls for it.
 

@@ -27,7 +27,7 @@ export async function RankingShelfSection({
 
   return (
     <RankingShelf
-      groups={toShelfGroups(selected, 12)}
+      groups={toShelfGroups(selected)}
       title={title}
       className={className}
     />
