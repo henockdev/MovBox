@@ -40,6 +40,12 @@ const CHECKS = [
     test: (html) =>
       html.includes("Everyone is searching") || html.includes("Top rankings"),
   },
+  {
+    name: "Icon sprite is in use",
+    path: "/",
+    test: (html) =>
+      html.includes('<symbol id="i-star"') && html.includes('<use href="#i-star"'),
+  },
 ];
 
 for (const c of CHECKS) {

@@ -92,6 +92,14 @@ const MARKERS = [
       html.includes('aria-label="Open the navigation menu"') &&
       html.includes('aria-haspopup="dialog"'),
   },
+  {
+    // The icon sprite: the card icons now point at one <symbol> per icon
+    // instead of inlining their path data hundreds of times over.
+    name: "Icon sprite is in use",
+    path: "/",
+    test: (html) =>
+      html.includes('<symbol id="i-star"') && html.includes('<use href="#i-star"'),
+  },
 ];
 
 // One fetch per distinct path, reused across the markers that need it.

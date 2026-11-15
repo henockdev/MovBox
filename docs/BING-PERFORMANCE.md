@@ -120,6 +120,34 @@ impressions to zero, because Bing never stopped crawling. That pattern —
 *crawled, indexed, zero impressions* — is a quality/indexing decision at
 Bing's end, not a technical fault at ours.
 
+## Should the site be deleted from Bing and re-added from scratch?
+
+**No.** Measured and checked against the live API on 2026-11-15.
+
+The property in Bing Webmaster Tools and the domain's standing in Bing's
+index are two different things. Deleting the property and adding it again:
+
+- **does not deindex the domain.** De-indexing is a domain-level, algorithmic
+  decision. There is no button that clears it, and re-adding a property does
+  not clear it either.
+- **does not restore the rankings.** Every query that ever clicked for this
+  site was a brand-alike query for a *different* brand — `moviebox.xyz`,
+  `moviebox`, `moviebox.ng`, `moviebox.com`, `officialmoviebox.co.uk`,
+  "create account for moviebox". That ranking was an artifact of a brand-name
+  match, and it is not something a property can be re-issued into.
+- **throws away the work that is there.** 249 URLs are in the index. The
+  IndexNow key is verified against this domain. The crawl history, the
+  property settings and the API access all reset to zero for no gain.
+- **cannot manufacture authority.** `GetLinkCounts` still returns
+  `TotalPages: 0` and every `AnchorCount: 0`. A fresh property starts with
+  exactly the same zero.
+
+The pattern to recognise: **crawled, indexed, zero impressions** — Bing is
+still crawling (108 pages on 2026-11-12, its biggest day ever, right after
+the IndexNow push), the index is growing (63 → 249 URLs since 2026-10-21),
+there are zero 4xx and zero 5xx responses, and zero robots.txt blocks. Nothing
+technical is broken, so there is nothing to reset.
+
 ## The real fix
 
 The site has **24,610 indexed URLs and zero backlinks** (`GetLinkCounts` →
@@ -137,9 +165,27 @@ What will actually move the numbers:
    missing. The `/movie/<slug>` and `/tv/<slug>` pages are the ones worth
    promoting — they are what a film site should rank for ("watch <title>
    free").
-2. **Shrink the homepage.** 1.75 MB of HTML is a crawl-budget leak; Bing
-   already truncates around 1.4–1.5 MB. Every link after that cut is
-   invisible. The 26 rows of 16 cards each are the cause.
+2. **Shrink the homepage — DONE (2026-11-15).** The homepage used to ship
+   1,746,920 bytes of HTML, of which 1,472,343 was markup and 268,208 was the
+   RSC flight payload. Bing's own record of the document was 1,482,201 bytes,
+   with the `/genres` nav link at byte 1,470,463 and `<footer>` starting at
+   1,469,390 — the page tail sat at or past the cut Bing had recorded. The
+   homepage is now **887,775 bytes** (−859,145, −49%). Two changes did it,
+   neither of which alters a rendered pixel:
+   - a shared icon sprite (`components/ui/Icon.tsx`) — the four lucide icons on
+     every card were inlining their path data 1,341 times over;
+   - the card's repeated Tailwind class lists moved into `@layer components`
+     in `app/globals.css`, written with `@apply` so Tailwind expands them to
+     the same declarations.
+
+   `scripts/verify-css-equivalence.mjs` proves the two versions compute to
+   identical styles, and `scripts/verify-page-weight.mjs` holds every page to
+   a byte budget so this cannot quietly regress.
+
+   **What this does and does not do.** It removes a crawl-budget leak and
+   makes the LCP page far lighter on a phone. It does **not** recover the
+   brand-alike rankings — those died on 2026-10-21 and nothing on the page
+   can bring them back.
 3. **Keep the episode URLs out of the sitemap's importance.** 23,751 of the
    24,610 URLs are `?s=1&e=10` query-string episode pages. Bing's own
    `GetPageStats` shows those earning **0 impressions each**. They are not

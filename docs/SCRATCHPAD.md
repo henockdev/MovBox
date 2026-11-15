@@ -4,6 +4,97 @@
 
 ---
 
+## ⚠️ LATEST SESSION (2026-11-15) — read this first
+
+The sections below are from 2026-08-27 and describe a different repo layout
+(`C:\projects\HMovies`, a `boxmovies-api` backend, an Oracle Cloud deploy).
+None of that is true any more. This block overrides it.
+
+**Repo:** `C:\projects\learn\android-app-investigation\websites\movbox` —
+public GitHub `https://github.com/henockdev/MovBox`, branch `main`, deployed
+on **Vercel**. The deploy is a `git push` to `main`.
+
+### Where the site actually stands
+
+- **Bing:** 249 URLs indexed and still growing (63 → 249 since 2026-10-21),
+  crawling hard (108 pages on 2026-11-12, its best day ever, right after the
+  IndexNow push), zero 4xx, zero 5xx, zero robots blocks.
+- **Impressions:** zero every day since **2026-10-21**. The traffic that came
+  before was never content traffic — every query that ever clicked was a
+  brand-alike query for a *different* brand (`moviebox.xyz`, `moviebox`,
+  `moviebox.ng`, `officialmoviebox.co.uk`). Full analysis in
+  `docs/BING-PERFORMANCE.md`.
+- **Backlinks: zero.** `GetLinkCounts` → `TotalPages: 0`, every
+  `AnchorCount: 0`. This is the missing ingredient and it is off-site work.
+- **Do not delete the site from Bing Webmaster Tools and re-add it.** A
+  property is not the domain's index; re-adding it resets the verified
+  property, the IndexNow key and the crawl history for zero gain. The
+  reasoning is in `docs/BING-PERFORMANCE.md`.
+
+### What shipped this session
+
+| Commit | What |
+|---|---|
+| `4873ec4` | Trailer hover preview, mobile trailer sheet, mobile nav drawer, scroll fix |
+| `8de0758` | Deploy-poll marker fixes |
+| `3028144` | IndexNow key hosted at the root; all 24,610 URLs submitted (3 batches, HTTP 200) |
+| `fe89de5` | Ranking shelf renders the whole group, not the first 12 |
+| `29b3f28` | The Bing Webmaster diagnostic (`scripts/bing-webmaster.mjs`, `docs/BING-PERFORMANCE.md`) |
+| `33c68ff` | Homepage 1.75 MB → 888 kB: icon sprite + extracted card classes |
+
+### The homepage weight work (2026-11-15)
+
+The homepage shipped **1,746,920 bytes**. Bing's own record of the document
+was 1,482,201 bytes, with the `/genres` nav link at byte 1,470,463 and
+`<footer>` at 1,469,390 — the tail sat at or past Bing's cut.
+
+| | before | after |
+|---|---|---|
+| total | 1,746,920 | **887,775** (−49%) |
+| markup (no scripts) | 1,472,343 | 622,561 |
+| RSC flight payload | 268,208 | 259,332 |
+| inline `<svg>` bytes | 627,182 | 225,476 |
+| `class="…"` bytes | 662,057 | 203,100 |
+
+Two changes, zero rendered-pixel difference:
+
+1. **Icon sprite** (`components/ui/Icon.tsx`). Seven `<symbol>`s emitted once
+   per document; every card icon is a `<use>`. The four card icons were
+   inlining their path data 1,341 times over.
+2. **Card classes extracted** into `@layer components` in `app/globals.css`,
+   written with `@apply` so Tailwind expands them to the same declarations.
+
+### The guards that now exist
+
+- `scripts/verify-css-equivalence.mjs` — resolves the computed style of every
+  part of the card, old classes vs new, at 3 viewports × 2 states × 22
+  elements (11,182 property resolutions) and fails on any difference. It was
+  proven to catch a deliberate `rounded-md` → `rounded-lg` regression before
+  being trusted.
+- `scripts/verify-icon-sprite.mjs` — every `<use>` resolves to a symbol.
+- `scripts/verify-page-weight.mjs` — every page inside a byte budget.
+- `scripts/verify-ranking-shelf.mjs` — the chip's count matches the row.
+
+### Known open issues
+
+- **A `notFound()` thrown inside a dynamic route renders an empty HTML body**
+  (the content arrives only in the RSC payload), so a non-JS crawler sees an
+  empty page for `/movie/<slug>`-style URLs. Pre-existing; the status code
+  is a correct 404 and the page is `noindex`, so the indexing impact is nil.
+  `scripts/verify-audit-fixes.mjs` reports it as 3 failures (short title,
+  short description, no `<h1>`) — those failures are on the **live** site
+  too, not something a recent change introduced.
+- **The 404 page's title is 29 characters** ("404 — Page Not Found | Movbox"),
+  one under the 30 minimum, and its description is 42 characters against a
+  120–160 band.
+- **`/category/live` is `noindex`** and the Midnight / 18+ shelves are still
+  in the sitemap — an open owner decision.
+- **`TMDB_API_KEY` is unset** and `lib/tmdb.ts` is still wired.
+- **Website OnStream cutover** (`api6.aoneroom.com` answers 440/441) is
+  parked; the relay is production.
+
+---
+
 ## Current state ✅
 
 - **Frontend** at `C:\projects\HMovies` — all pages, all API routes, full rebrand to **Movbox**.
