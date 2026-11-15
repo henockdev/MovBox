@@ -22,8 +22,9 @@ const MARKERS = [
       ),
   },
   {
+    // The hero slide strip lives on the HOMEPAGE, not on the browse screens.
     name: "HeroBanner scroll track",
-    path: "/movies",
+    path: "/",
     test: (html) =>
       html.includes("snap-mandatory") &&
       html.includes('aria-label="Scroll the featured titles left"'),
@@ -33,6 +34,25 @@ const MARKERS = [
     path: "/movies",
     test: (html) =>
       html.includes("aria-pressed=") && html.includes("See all rankings"),
+  },
+  {
+    // The ranked row must show the WHOLE group — the chip's count and the
+    // number of rank badges have to agree, or the row contradicts its own
+    // label. This is the marker that tells the new ranking build apart.
+    name: "Ranking row shows the whole group",
+    path: "/tv",
+    test: (html) => {
+      const chips = [
+        ...html.matchAll(
+          /aria-pressed="(?:true|false)"[\s\S]{0,600}?tabular-nums[^>]*>\s*(\d+)\s*</g
+        ),
+      ].map((m) => Number(m[1]));
+      const ol = html.match(/<ol class="no-scrollbar[^"]*"[\s\S]*?<\/ol>/);
+      const badges = ol
+        ? [...ol[0].matchAll(/>(TOP \d+|\d+)<\/span>/g)].length
+        : 0;
+      return chips.length > 0 && badges === chips[0];
+    },
   },
   {
     // The header search field is now a trigger for the full-screen overlay.
