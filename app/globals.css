@@ -326,6 +326,151 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   The movie card
+   ---------------------------------------------------------------------------
+   The homepage renders ~480 of these. Every one of them used to repeat its
+   whole Tailwind class list in the markup — the rating chip alone was 227
+   bytes, repeated 329 times — which came to **607 KB** of `class="…"`
+   attributes on a page that has to fit through a crawler and a phone.
+
+   The styles below are the SAME declarations, written once. They are built
+   with `@apply`, so Tailwind itself expands them: the compiled CSS is
+   identical to what the utility classes produced, class for class. The
+   component layer sits BELOW the utilities layer, so a page that still wants
+   to override one of these with a utility class wins exactly as before.
+
+   `scripts/verify-css-equivalence.mjs` proves the equivalence: it resolves
+   the computed style of every part of the card, old classes vs new classes,
+   at three viewport widths and in both the resting and hovered states.
+   --------------------------------------------------------------------------- */
+@layer components {
+  /* The poster frame. */
+  .mv-card-poster {
+    @apply relative aspect-[2/3] overflow-hidden rounded-md border border-border bg-surface shadow-card transition-all duration-300;
+  }
+
+  /* The link that fills the poster frame. */
+  .mv-card-link {
+    @apply block h-full w-full;
+  }
+
+  /* The poster image itself. */
+  .mv-card-img {
+    @apply object-cover transition-transform duration-500;
+  }
+
+  /* The golden rating chip in the top-right corner. */
+  .mv-card-rating {
+    @apply absolute right-1 top-1 flex items-center gap-0.5 rounded bg-bg-deepest/80 px-1 py-0.5 text-[9px] font-semibold leading-none text-yellow-400 shadow-md backdrop-blur-sm sm:right-1.5 sm:top-1.5 sm:gap-1 sm:text-[10px];
+  }
+  .mv-card-star {
+    @apply h-2.5 w-2.5 fill-yellow-400 text-yellow-400 sm:h-3 sm:w-3;
+  }
+
+  /* The gradient that keeps the caption legible on hover. */
+  .mv-card-gradient {
+    @apply absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg-deepest/85 via-bg-deepest/40 to-transparent;
+  }
+
+  /* The play + add buttons, revealed on hover. */
+  .mv-card-hover {
+    @apply absolute inset-0 flex items-end justify-between gap-1 p-1.5 opacity-0 transition-opacity duration-300;
+  }
+  .mv-card-play {
+    @apply flex h-6 w-6 items-center justify-center rounded-full bg-brand text-cream shadow-glow sm:h-7 sm:w-7;
+  }
+  .mv-card-play-ico {
+    @apply h-3 w-3 fill-current sm:h-3.5 sm:w-3.5;
+  }
+
+  /* The mobile trailer button — coarse pointers only. */
+  .mv-card-trailer {
+    @apply pointer-coarse:flex max-md:flex absolute bottom-1.5 left-1.5 z-20 hidden h-7 w-7 items-center justify-center rounded-full bg-black/65 text-cream backdrop-blur-sm transition-transform shadow-[0_2px_10px_rgba(0,0,0,0.5)];
+  }
+  .mv-card-trailer:active {
+    @apply scale-90;
+  }
+  .mv-card-trailer-ico {
+    @apply h-3.5 w-3.5;
+  }
+
+  /* The caption under the poster. */
+  .mv-card-caption {
+    @apply mt-1 block px-0.5;
+  }
+  .mv-card-title {
+    @apply line-clamp-1 text-[11px] font-medium text-text-primary transition-colors sm:text-[13px];
+  }
+  .mv-card-year {
+    @apply mt-0.5 text-[10px] text-text-muted sm:text-[11px];
+  }
+
+  /* The "+ My List" button — also used on the detail pages. */
+  .mv-watchlist {
+    @apply flex items-center justify-center rounded-full border border-border bg-surface-elevated/90 text-text-primary backdrop-blur transition-all;
+  }
+
+  /* The horizontal shelf a row of cards sits in. */
+  .mv-row-header {
+    @apply mb-2.5 flex items-end justify-between gap-3 px-3 sm:mb-3 sm:px-5 md:px-6 lg:px-8;
+  }
+  /* NOTE: `font-display` stays in the markup for this heading. The Tailwind
+     utility of that name only sets the family; the site's own `.font-display`
+     helper also sets `letter-spacing: .01em`, and `@apply` cannot reach a
+     helper class. Leaving the class in the markup keeps both. */
+  .mv-row-title {
+    @apply flex items-center gap-2 text-base font-bold text-cream sm:text-lg md:text-xl;
+  }
+  .mv-row-nav {
+    @apply absolute top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg-deepest/80 text-text-primary opacity-0 backdrop-blur transition-opacity md:flex;
+  }
+  .mv-row-track {
+    @apply flex snap-x snap-mandatory gap-1.5 overflow-x-auto scroll-smooth px-3 pb-2 sm:gap-2 sm:px-5 md:gap-3 md:px-6 lg:gap-3.5 lg:px-8;
+    /* `no-scrollbar` is one of this file's own helpers, not a Tailwind
+       utility, so `@apply` cannot reach it — the two declarations it
+       carries are repeated here verbatim. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .mv-row-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ---------------------------------------------------------------------
+     Hover states.
+
+     Tailwind v4 puts every `hover:` variant inside `@media (hover: hover)`,
+     so a touch device never receives them — a tap must not leave the card
+     stuck in its hover state, and the mobile trailer button must not be
+     covered by the desktop hover overlay. These rules are gated the same
+     way, which is why they live in their own block.
+     --------------------------------------------------------------------- */
+  @media (hover: hover) {
+    .group:hover .mv-card-poster {
+      @apply scale-[1.025] border-accent shadow-glow;
+    }
+    .group:hover .mv-card-img {
+      @apply scale-105;
+    }
+    .group:hover .mv-card-hover {
+      @apply opacity-100;
+    }
+    .group:hover .mv-card-title {
+      @apply text-cream;
+    }
+    .mv-watchlist:hover {
+      @apply border-accent;
+    }
+    .mv-row-nav:hover {
+      @apply border-accent bg-brand;
+    }
+    .group\/row:hover .mv-row-nav {
+      @apply opacity-100;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Ad layout reservations
    ---------------------------------------------------------------------------
    Third-party ad units are unversioned and can change size or position at

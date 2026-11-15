@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Clapperboard, Play, Star } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { imageUrl } from "@/lib/image";
 import { formatRating, formatYear } from "@/lib/format";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
@@ -73,13 +73,13 @@ export function MovieCard({
         data-trailer-open={sheetOpen ? "1" : "0"}
       >
         {/* ---- the poster ---- */}
-        <div className="relative aspect-[2/3] overflow-hidden rounded-md border border-border bg-surface shadow-card transition-all duration-300 group-hover:scale-[1.025] group-hover:border-accent group-hover:shadow-glow">
+        <div className="mv-card-poster">
           <Link
             href={href}
             ref={preview.anchorRef}
             onMouseEnter={preview.openNow}
             onMouseLeave={preview.closeSoon}
-            className="block h-full w-full"
+            className="mv-card-link"
           >
             {poster ? (
               <Image
@@ -88,7 +88,7 @@ export function MovieCard({
                 fill
                 priority={priority}
                 sizes="(max-width: 640px) 100px, (max-width: 768px) 128px, (max-width: 1024px) 148px, 168px"
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                className="mv-card-img"
               />
             ) : (
               <div
@@ -103,19 +103,19 @@ export function MovieCard({
 
             {/* Golden star rating — top-right corner, always visible */}
             {hasRating && (
-              <div className="absolute right-1 top-1 flex items-center gap-0.5 rounded bg-bg-deepest/80 px-1 py-0.5 text-[9px] font-semibold leading-none text-yellow-400 shadow-md backdrop-blur-sm sm:right-1.5 sm:top-1.5 sm:gap-1 sm:text-[10px]">
-                <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400 sm:h-3 sm:w-3" />
+              <div className="mv-card-rating">
+                <Icon name="star" className="mv-card-star" />
                 <span>{formatRating(media.rating)}</span>
               </div>
             )}
 
             {/* Bottom gradient for legibility on hover */}
-            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg-deepest/85 via-bg-deepest/40 to-transparent" />
+            <div className="mv-card-gradient" />
 
             {/* Play + add buttons on hover */}
-            <div className="absolute inset-0 flex items-end justify-between gap-1 p-1.5 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-cream shadow-glow sm:h-7 sm:w-7">
-                <Play className="h-3 w-3 fill-current sm:h-3.5 sm:w-3.5" />
+            <div className="mv-card-hover">
+              <span className="mv-card-play">
+                <Icon name="play" className="mv-card-play-ico" />
               </span>
               {withAddButton && <WatchlistButton media={media} size="sm" />}
             </div>
@@ -141,22 +141,19 @@ export function MovieCard({
                 preview.closeSoon();
                 setSheetOpen(true);
               }}
-              className={cn(
-                "pointer-coarse:flex max-md:flex absolute bottom-1.5 left-1.5 z-20 hidden h-7 w-7 items-center justify-center rounded-full bg-black/65 text-cream backdrop-blur-sm transition-transform active:scale-90",
-                "shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
-              )}
+              className="mv-card-trailer"
             >
-              <Clapperboard className="h-3.5 w-3.5" />
+              <Icon name="clapperboard" className="mv-card-trailer-ico" />
             </button>
           )}
         </div>
 
         {/* ---- the title ---- */}
-        <Link href={href} className="mt-1 block px-0.5">
-          <h3 className="line-clamp-1 text-[11px] font-medium text-text-primary transition-colors group-hover:text-cream sm:text-[13px]">
+        <Link href={href} className="mv-card-caption">
+          <h3 className="mv-card-title">
             {media.title}
           </h3>
-          <p className="mt-0.5 text-[10px] text-text-muted sm:text-[11px]">
+          <p className="mv-card-year">
             {formatYear(media.year)}
             {media.runtime
               ? ` · ${Math.floor(media.runtime / 60)}h ${media.runtime % 60}m`

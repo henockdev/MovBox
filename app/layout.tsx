@@ -5,6 +5,7 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { Footer } from "@/components/layout/Footer";
 import { SiteAds } from "@/components/ads/SiteAds";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
+import { IconSprite } from "@/components/ui/Icon";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { SITE_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -121,6 +122,10 @@ export default function RootLayout({
             assistant where the plain-text site summary lives.
             https://llmstxt.org */}
         <link rel="llms-txt" href="/llms.txt" />
+        {/* The shared icon sprite — every card's star/play/plus/clapperboard
+            points into these symbols instead of inlining the path data
+            hundreds of times over. See components/ui/Icon.tsx. */}
+        <IconSprite />
         {/* WebSite + Organization — the site-wide identity markup. */}
         <SiteJsonLd />
         {/* The search screen, hosted once for the whole site: touching the

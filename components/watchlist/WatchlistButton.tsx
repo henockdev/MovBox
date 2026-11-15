@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Check } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import {
   isInWatchlist,
   toggleWatchlist,
@@ -67,16 +67,16 @@ export function WatchlistButton({
         aria-label={inList ? "Remove from My List" : "Add to My List"}
         onClick={handleClick}
         className={cn(
-          "flex items-center justify-center rounded-full border border-border bg-surface-elevated/90 text-text-primary backdrop-blur transition-all hover:border-accent",
+          "mv-watchlist",
           sizes[size],
           inList && "border-accent bg-accent text-cream hover:bg-accent-bright",
           className
         )}
       >
         {inList ? (
-          <Check className={iconSizes[size]} />
+          <Icon name="check" className={iconSizes[size]} />
         ) : (
-          <Plus className={iconSizes[size]} />
+          <Icon name="plus" className={iconSizes[size]} />
         )}
       </button>
     );
@@ -93,7 +93,7 @@ export function WatchlistButton({
         className
       )}
     >
-      {inList ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+      {inList ? <Icon name="check" className="h-4 w-4" /> : <Icon name="plus" className="h-4 w-4" />}
       {inList ? "In My List" : "My List"}
     </button>
   );

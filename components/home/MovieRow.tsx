@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { MovieCard } from "./MovieCard";
 import type { MediaCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -69,8 +69,8 @@ export function MovieRow({
 
   return (
     <section className={cn("relative group/row", className)}>
-      <header className="mb-2.5 flex items-end justify-between gap-3 px-3 sm:mb-3 sm:px-5 md:px-6 lg:px-8">
-        <h2 className="flex items-center gap-2 font-display text-base font-bold text-cream sm:text-lg md:text-xl">
+      <header className="mv-row-header">
+        <h2 className="mv-row-title font-display">
           {icon && <span className={cn("flex items-center", iconClassName)}>{icon}</span>}
           <span>{title}</span>
         </h2>
@@ -90,22 +90,22 @@ export function MovieRow({
           type="button"
           aria-label="Previous"
           onClick={() => scrollBy("left")}
-          className="absolute left-0 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg-deepest/80 text-text-primary opacity-0 backdrop-blur transition-opacity hover:border-accent hover:bg-brand md:flex group-hover/row:opacity-100"
+          className="mv-row-nav left-0"
         >
-          <ChevronLeft className="h-6 w-6" />
+          <Icon name="chevron-left" className="h-6 w-6" />
         </button>
         <button
           type="button"
           aria-label="Next"
           onClick={() => scrollBy("right")}
-          className="absolute right-0 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg-deepest/80 text-text-primary opacity-0 backdrop-blur transition-opacity hover:border-accent hover:bg-brand md:flex group-hover/row:opacity-100"
+          className="mv-row-nav right-0"
         >
-          <ChevronRight className="h-6 w-6" />
+          <Icon name="chevron-right" className="h-6 w-6" />
         </button>
 
         <div
           ref={scrollerRef}
-          className="no-scrollbar flex snap-x snap-mandatory gap-1.5 overflow-x-auto scroll-smooth px-3 pb-2 sm:gap-2 sm:px-5 md:gap-3 md:px-6 lg:gap-3.5 lg:px-8"
+          className="mv-row-track"
         >
           {items.map((media, i) => (
             <MovieCard
