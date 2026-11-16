@@ -288,6 +288,40 @@ function seasonEpisodeCount(season) {
 }
 
 /**
+ * The episode numbers a season actually has.
+ *
+ * `maxEp` is the **highest episode number**, not a count, and the upstream's
+ * `allEp` is the real list — which can be sparse. VERIFIED 2026-11-15 on
+ * "Eternal Brotherhood" season 2: `maxEp` is 40 but `allEp` lists 37,
+ * omitting episodes 7, 8 and 9 — and those three resolve **zero** sources
+ * from `/api/sources?season=2&episode=7` (episodes 6, 10, 37 and 40 all
+ * resolve 2–3 sources).
+ *
+ * Publishing `1..maxEp` therefore puts dead URLs in the sitemap that
+ * nothing links to and that play nothing: the exact orphan-page pattern the
+ * Ahrefs audit reported.
+ *
+ * So use `allEp` when the upstream gives it, and fall back to `1..maxEp` only
+ * when it does not. This mirrors `lib/data.ts`, so the sitemap and the
+ * series page agree on which episodes exist.
+ */
+function seasonEpisodeNumbers(season) {
+  const raw = season.allEp;
+  const parts = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? raw.split(",")
+      : [];
+  const parsed = parts
+    .map((e) => Number(String(e).trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (parsed.length) {
+    return [...new Set(parsed)].sort((a, b) => a - b);
+  }
+  return Array.from({ length: seasonEpisodeCount(season) }, (_, i) => i + 1);
+}
+
+/**
  * Fetch /detail for every catalogue entry and resolve:
  *   kind, real lastmod, poster/backdrop, and the episode list for series.
  */
@@ -328,11 +362,11 @@ async function resolveTitles(token, entries) {
         for (const season of seasons) {
           const se = Number(season.se) || 0;
           if (se <= 0) continue;
-          const count = Math.min(
-            seasonEpisodeCount(season),
-            MAX_EPISODES_PER_SEASON
-          );
-          for (let ep = 1; ep <= count; ep++) {
+          // The upstream's own episode list, not 1..maxEp — see
+          // seasonEpisodeNumbers(). A sparse list means the gap episodes do
+          // not exist and must not be published.
+          const numbers = seasonEpisodeNumbers(season);
+          for (const ep of numbers.slice(0, MAX_EPISODES_PER_SEASON)) {
             episodeList.push({ season: se, episode: ep });
           }
         }
