@@ -10,6 +10,7 @@ import { DetailUnavailable } from "@/components/detail/DetailUnavailable";
 import { toMediaCard } from "@/lib/adapters";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { detailTitle, pageSeo } from "@/lib/seo";
+import { clarityExclusionProps } from "@/lib/analytics/clarity";
 
 export const revalidate = 3600;
 
@@ -98,7 +99,7 @@ export default async function WatchMoviePage({ params }: WatchMoviePageProps) {
   )}`;
 
   return (
-    <div className="bg-bg-deepest">
+    <div className="bg-bg-deepest" {...clarityExclusionProps(details)}>
       <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-bg-deepest/90 px-3 py-2.5 backdrop-blur sm:px-5 sm:py-3 md:px-6">
         <Button asChild variant="ghost" size="icon" aria-label="Back">
           <Link href={`/movie/${encodeURIComponent(details.detailPath)}`}>

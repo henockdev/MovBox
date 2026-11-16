@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { imageUrl } from "@/lib/image";
 import { formatRating, formatYear } from "@/lib/format";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
+import { isAdultGenreString, isAdultTitle } from "@/lib/analytics/clarity";
 import {
   HoverPreview,
   useHoverPreview,
@@ -63,6 +64,13 @@ export function MovieCard({
   const [sheetOpen, setSheetOpen] = useState(false);
   const hasTrailer = !!media.trailerUrl;
 
+  // An 18+ title must not be recorded by Clarity, and its poster and name
+  // must not be readable in a recording of an ordinary page. The upstream
+  // publishes some of these with a sanitised genre, so the title's own
+  // name is checked as well. See lib/analytics/clarity.ts.
+  const adult =
+    isAdultTitle(media.title) || isAdultGenreString(media.subline);
+
   return (
     <>
       <div
@@ -71,6 +79,8 @@ export function MovieCard({
           className
         )}
         data-trailer-open={sheetOpen ? "1" : "0"}
+        data-clarity-mask={adult ? "true" : undefined}
+        data-clarity-adult={adult ? "true" : undefined}
       >
         {/* ---- the poster ---- */}
         <div className="mv-card-poster">
@@ -80,6 +90,7 @@ export function MovieCard({
             onMouseEnter={preview.openNow}
             onMouseLeave={preview.closeSoon}
             className="mv-card-link"
+            data-clarity-adult={adult ? "true" : undefined}
           >
             {poster ? (
               <Image

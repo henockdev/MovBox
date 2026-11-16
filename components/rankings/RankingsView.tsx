@@ -4,6 +4,7 @@ import { Star } from "lucide-react";
 import type { BoxRankingGroup } from "@/lib/data";
 import { cleanRankingTitle } from "@/lib/data";
 import { toMediaCard } from "@/lib/cards";
+import { isAdultGenreString, isAdultTitle } from "@/lib/analytics/clarity";
 import { cn } from "@/lib/utils";
 
 /**
@@ -193,11 +194,19 @@ export function RankingsView({
               const source = active.items[i];
               const href = `/${card.type}/${encodeURIComponent(card.id)}`;
               const meta = metaLine(card, source.genre, source.country);
+              // An 18+ title that the upstream lists inside an ordinary
+              // shelf must not be readable in a Clarity recording.
+              const adult =
+                isAdultTitle(card.title) || isAdultGenreString(source.genre);
               return (
-                <li key={`${card.type}-${card.id}-${i}`}>
+                <li
+                  key={`${card.type}-${card.id}-${i}`}
+                  data-clarity-mask={adult ? "true" : undefined}
+                >
                   <Link
                     href={href}
                     className="group flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-surface md:gap-4 md:p-3"
+                    data-clarity-adult={adult ? "true" : undefined}
                   >
                     <div className="relative h-[84px] w-[58px] shrink-0 overflow-hidden rounded-md border border-border bg-card-burgundy md:h-[104px] md:w-[70px]">
                       {card.posterPath ? (

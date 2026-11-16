@@ -5,6 +5,7 @@ import { RankingsView } from "@/components/rankings/RankingsView";
 import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { ItemListJsonLd } from "@/components/seo/ItemListJsonLd";
 import { pageSeo } from "@/lib/seo";
+import { clarityRouteProps } from "@/lib/analytics/clarity";
 
 export const revalidate = 1800; // 30 min
 export const dynamicParams = true; // a group the upstream adds later is rendered on demand
@@ -109,7 +110,7 @@ export default async function RankingGroupPage({ params }: RankingGroupPageProps
   }
 
   return (
-    <>
+    <div {...clarityRouteProps(`/rankings/${active.slug}`)}>
       <BreadcrumbJsonLd
         items={[
           { name: "Home", path: "/" },
@@ -131,6 +132,6 @@ export default async function RankingGroupPage({ params }: RankingGroupPageProps
         activeSlug={active.slug}
         heading={`${cleanRankingTitle(active.title)} Rankings`}
       />
-    </>
+    </div>
   );
 }

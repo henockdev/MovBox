@@ -4,10 +4,12 @@ import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { Footer } from "@/components/layout/Footer";
 import { SiteAds } from "@/components/ads/SiteAds";
+import { Clarity } from "@/components/analytics/Clarity";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { IconSprite } from "@/components/ui/Icon";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { SITE_URL } from "@/lib/constants";
+import { CLARITY_PROJECT_ID } from "@/lib/analytics/clarity";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
@@ -76,6 +78,11 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
   },
   manifest: "/manifest.webmanifest",
+  other: {
+    // The Clarity project this site records to. A marker in the head is
+    // what makes the installation verifiable from the served HTML.
+    "clarity-project": CLARITY_PROJECT_ID,
+  },
 };
 
 export const viewport: Viewport = {
@@ -117,6 +124,10 @@ export default function RootLayout({
           src="https://analytics.ahrefs.com/analytics.js"
           data-key="7gdtpRLUCl7EE8j5ve6BzA"
         />
+        {/* Microsoft Clarity — the owner's own snippet (project
+            ze20elh5au), mounted through components/analytics/Clarity.tsx so
+            the 18+ routes can be kept out of the recording. */}
+        <Clarity />
         {/* llms.txt discovery. There is no standard robots.txt directive for
             it, so the link tag in the document head is what tells an
             assistant where the plain-text site summary lives.

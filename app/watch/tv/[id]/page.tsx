@@ -11,6 +11,7 @@ import {
   clampEpisodeNumber,
   pageSeo,
 } from "@/lib/seo";
+import { clarityExclusionProps } from "@/lib/analytics/clarity";
 
 export const revalidate = 3600;
 
@@ -135,7 +136,7 @@ export default async function WatchTVPage({
   )}?s=${season}&e=${episode}`;
 
   return (
-    <>
+    <div {...clarityExclusionProps(details)}>
       <WatchJsonLd
         url={url}
         title={`${show} Season ${season} Episode ${episode}`}
@@ -185,6 +186,6 @@ export default async function WatchTVPage({
           />
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

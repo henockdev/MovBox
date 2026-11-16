@@ -8,6 +8,7 @@ import { BreadcrumbJsonLd } from "@/components/seo/BreadcrumbJsonLd";
 import { getBoxmoviesBrowse, getBoxmoviesOperatingTab } from "@/lib/data";
 import { toMediaCards } from "@/lib/cards";
 import { CATEGORIES, CATEGORY_BY_SLUG } from "@/lib/categories";
+import { clarityRouteProps } from "@/lib/analytics/clarity";
 import { pageSeo } from "@/lib/seo";
 import type { MediaCard } from "@/lib/types";
 
@@ -97,7 +98,10 @@ export default async function CategoryPage({ params }: PageProps) {
   const sections = resolved.flat().filter((s) => s.items.length > 0);
 
   return (
-    <div className="min-h-screen pb-16 pt-16 md:pb-12 md:pt-20">
+    <div
+      className="min-h-screen pb-16 pt-16 md:pb-12 md:pt-20"
+      {...clarityRouteProps(`/category/${cat.slug}`)}
+    >
       <BreadcrumbJsonLd
         items={[
           { name: "Home", path: "/" },

@@ -32,6 +32,7 @@ import { DisplayAd } from "@/components/ads/DisplayAd";
 import { formatRating, formatYear } from "@/lib/format";
 import { imageUrl } from "@/lib/image";
 import { toMediaCard } from "@/lib/adapters";
+import { clarityExclusionProps } from "@/lib/analytics/clarity";
 import { cn } from "@/lib/utils";
 import type { BoxDetail, BoxMediaCard } from "@/lib/types";
 
@@ -72,7 +73,10 @@ export function MovieDetailView({ details, related = [] }: MovieDetailViewProps)
   const distribution = synthesizeDistribution(ratingNum, details.ratingCount ?? 0);
 
   return (
-    <div className="min-h-screen bg-bg-deepest text-text-primary">
+    <div
+      className="min-h-screen bg-bg-deepest text-text-primary"
+      {...clarityExclusionProps(details)}
+    >
       {/* ─── HERO ─── */}
       <section className="relative isolate overflow-hidden">
         {/* Backdrop — full-bleed cover, smooth gradient for legibility. */}
