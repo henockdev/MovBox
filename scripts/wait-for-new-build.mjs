@@ -100,6 +100,23 @@ const MARKERS = [
     test: (html) =>
       html.includes('<symbol id="i-star"') && html.includes('<use href="#i-star"'),
   },
+  {
+    // Microsoft Clarity: the head carries the project marker, and the 18+
+    // pages carry the exclusion markers. This is the marker that tells
+    // the Clarity build apart from the one before it.
+    name: "Microsoft Clarity is installed",
+    path: "/",
+    test: (html) =>
+      html.includes('name="clarity-project"') &&
+      html.includes('content="ze20elh5au"'),
+  },
+  {
+    name: "The 18+ pages are excluded from Clarity",
+    path: "/category/midnight",
+    test: (html) =>
+      html.includes('data-clarity-exclude="true"') &&
+      html.includes('data-clarity-mask="true"'),
+  },
 ];
 
 // One fetch per distinct path, reused across the markers that need it.
