@@ -4,6 +4,41 @@
 
 ---
 
+## ⚠️ LATEST SESSION (2026-11-16) — read this first
+
+**The owner's SEO error panel is still unidentified.** They pasted a fragment:
+"Total Errors — High severity 5, Moderate severity 40, Low severity 8, 53
+total; Total pages with errors 50; Error details". No tool name, no site name,
+no error rows. Nothing in the repo maps to a High/Moderate/Low taxonomy
+(`grep` for severity|doughnut|"Error details" → nothing). **Ask for the
+"Error details" table** before guessing at a taxonomy.
+
+What we could establish without it, and shipped (commit `0fba061`):
+
+- The site's own audit is clean. `verify-audit-fixes.mjs` → ALL CHECKS PASSED
+  over 983 URLs; `audit-url-quality.mjs` over 1,662 URLs → 0 HTTP ≥ 300, 0
+  pages over 2 MB, 0 missing h1, 0 missing og, 0 short/long titles or
+  descriptions, 0 canonical mismatches.
+- The one real class of error we could find and fix: **dead URLs**. A sitemap
+  can outlive the title it pointed at — the upstream drops titles, the URL
+  stays published, the page answers 404 with a stub title ("Movie not found",
+  16 chars) and a 42-char description. Every one of those reads as broken.
+  All the not-found paths now return in-band copy (`missingContentSeo()` in
+  `lib/seo.ts`), and they keep their 404 status.
+- **The audit script itself was wrong.** `audit-url-quality.mjs` measured the
+  RAW markup, so `Episodes &amp; Seasons` counted as 62 characters instead of
+  58 — that alone produced 118 false "title too long" and 219 false
+  "description too long". It decodes entities now. If you ever see a count of
+  failed titles/descriptions, suspect the measuring script first.
+- A real 404 inside a dynamic route renders an empty body (the h1 is only in
+  the RSC payload). `verify-audit-fixes.mjs` no longer fails a non-200 for
+  "no h1" — rendering an h1 inline would turn the 404 into a 200 soft-404.
+
+New scripts: `scripts/find-dead-urls.mjs` (crawl the sitemap for status
+errors), `scripts/verify-ads.mjs` (which ad units are in the served HTML).
+
+---
+
 ## ⚠️ LATEST SESSION (2026-11-15) — read this first
 
 The sections below are from 2026-08-27 and describe a different repo layout
