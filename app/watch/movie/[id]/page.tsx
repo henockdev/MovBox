@@ -9,7 +9,7 @@ import { getBoxmoviesDetailOutcome, getBoxmoviesRelated, titleFromDetailPath } f
 import { DetailUnavailable } from "@/components/detail/DetailUnavailable";
 import { toMediaCard } from "@/lib/adapters";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
-import { detailTitle, pageSeo } from "@/lib/seo";
+import { detailTitle, missingContentSeo, pageSeo } from "@/lib/seo";
 import { clarityExclusionProps } from "@/lib/analytics/clarity";
 
 export const revalidate = 3600;
@@ -25,10 +25,11 @@ export async function generateMetadata({
   const outcome = await getBoxmoviesDetailOutcome(id);
 
   if (outcome.kind === "missing") {
+    const missing = missingContentSeo("episode");
     return pageSeo({
       path: `/watch/movie/${encodeURIComponent(id)}`,
-      title: "Watch",
-      description: `Watch on ${SITE_NAME}.`,
+      title: missing.title,
+      description: missing.description,
       noindex: true,
     });
   }

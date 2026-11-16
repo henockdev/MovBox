@@ -9,7 +9,7 @@ import { MovieDetailView } from "@/components/detail/MovieDetailView";
 import { DetailUnavailable } from "@/components/detail/DetailUnavailable";
 import { SITE_NAME } from "@/lib/constants";
 import { MovieJsonLd } from "@/components/seo/MovieJsonLd";
-import { detailCanonical, detailTitle, pageSeo } from "@/lib/seo";
+import { detailCanonical, detailTitle, missingContentSeo, pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -24,10 +24,11 @@ export async function generateMetadata({
   const outcome = await getBoxmoviesDetailOutcome(id);
 
   if (outcome.kind === "missing") {
+    const missing = missingContentSeo("movie");
     return pageSeo({
       path: `/movie/${encodeURIComponent(id)}`,
-      title: "Movie not found",
-      description: `This movie is not available on ${SITE_NAME}.`,
+      title: missing.title,
+      description: missing.description,
       noindex: true,
     });
   }

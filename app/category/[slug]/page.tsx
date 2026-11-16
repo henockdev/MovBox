@@ -9,7 +9,7 @@ import { getBoxmoviesBrowse, getBoxmoviesOperatingTab } from "@/lib/data";
 import { toMediaCards } from "@/lib/cards";
 import { CATEGORIES, CATEGORY_BY_SLUG } from "@/lib/categories";
 import { clarityRouteProps } from "@/lib/analytics/clarity";
-import { pageSeo } from "@/lib/seo";
+import { missingContentSeo, pageSeo } from "@/lib/seo";
 import type { MediaCard } from "@/lib/types";
 
 export const revalidate = 1800; // 30 min
@@ -26,10 +26,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const cat = CATEGORY_BY_SLUG.get(slug);
   if (!cat) {
+    const missing = missingContentSeo("category");
     return pageSeo({
       path: `/category/${slug}`,
-      title: "Category not found",
-      description: "This category does not exist on Movbox.",
+      title: missing.title,
+      description: missing.description,
       noindex: true,
     });
   }

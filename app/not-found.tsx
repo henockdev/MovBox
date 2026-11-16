@@ -6,8 +6,13 @@ import { pageSeo } from "@/lib/seo";
 
 export const metadata: Metadata = pageSeo({
   path: "/404",
-  title: "404 — Page Not Found",
-  description: "The page you're looking for doesn't exist.",
+  // The rendered title is "… | Movbox", so the template title has to clear
+  // 21 characters for the rendered title to clear 30 — the shortest title
+  // Google will not treat as a stub. The description is in the 120-160 band
+  // for the same reason: a noindex page is still a page a crawler reads.
+  title: "404 — The Page Could Not Be Found",
+  description:
+    "This Movbox page could not be found. The title may have left the catalogue or the link may be out of date. Browse free movies and TV shows on Movbox.",
   noindex: true,
 });
 

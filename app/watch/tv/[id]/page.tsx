@@ -9,6 +9,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import {
   baseShowTitle,
   clampEpisodeNumber,
+  missingContentSeo,
   pageSeo,
 } from "@/lib/seo";
 import { clarityExclusionProps } from "@/lib/analytics/clarity";
@@ -59,10 +60,11 @@ export async function generateMetadata({
   const outcome = await getBoxmoviesDetailOutcome(id);
 
   if (outcome.kind === "missing") {
+    const missing = missingContentSeo("episode");
     return pageSeo({
       path: `/watch/tv/${encodeURIComponent(id)}`,
-      title: "Watch",
-      description: `Watch on ${SITE_NAME}.`,
+      title: missing.title,
+      description: missing.description,
       noindex: true,
     });
   }

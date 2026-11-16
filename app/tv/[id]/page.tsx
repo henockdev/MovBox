@@ -14,6 +14,7 @@ import {
   baseShowTitle,
   detailCanonical,
   detailTitle,
+  missingContentSeo,
   pageSeo,
 } from "@/lib/seo";
 
@@ -30,10 +31,11 @@ export async function generateMetadata({
   const outcome = await getBoxmoviesDetailOutcome(id);
 
   if (outcome.kind === "missing") {
+    const missing = missingContentSeo("tv");
     return pageSeo({
       path: `/tv/${encodeURIComponent(id)}`,
-      title: "TV show not found",
-      description: `This TV show is not available on ${SITE_NAME}.`,
+      title: missing.title,
+      description: missing.description,
       noindex: true,
     });
   }

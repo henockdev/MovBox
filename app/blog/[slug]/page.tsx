@@ -14,6 +14,7 @@ import {
   MAX_TEMPLATE_TITLE,
   clampDescription,
   clampTitle,
+  missingContentSeo,
 } from "@/lib/seo";
 
 // Pre-render all known slugs at build time so individual posts are
@@ -30,8 +31,10 @@ export async function generateMetadata({
   const { slug } = await params;
   const article = getArticleBySlug(slug);
   if (!article) {
+    const missing = missingContentSeo("article");
     return {
-      title: "Article not found",
+      title: missing.title,
+      description: missing.description,
       robots: { index: false, follow: false },
     };
   }

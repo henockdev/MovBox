@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getBoxmoviesDetail, getBoxmoviesRelated } from "@/lib/data";
 import { MovieDetailView } from "@/components/detail/MovieDetailView";
 import { SITE_NAME } from "@/lib/constants";
-import { clampDescription, pageSeo } from "@/lib/seo";
+import { clampDescription, missingContentSeo, pageSeo } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -25,10 +25,11 @@ export async function generateMetadata({
   const { id } = await params;
   const details = await getBoxmoviesDetail(id).catch(() => null);
   if (!details) {
+    const missing = missingContentSeo("movie");
     return pageSeo({
       path: `/movies/${encodeURIComponent(id)}`,
-      title: "Movie not found",
-      description: `This movie is not available on ${SITE_NAME}.`,
+      title: missing.title,
+      description: missing.description,
       noindex: true,
     });
   }

@@ -365,3 +365,57 @@ export function detailCanonical(
 export function baseShowTitle(title: string): string {
   return title.replace(/\s+S\d+(-S\d+)?\s*$/i, "").trim() || title;
 }
+
+/**
+ * The title and description for a URL whose content is gone.
+ *
+ * The upstream drops titles, so a sitemap can outlive one: the URL stays
+ * published and the page answers 404. A crawler still reads that page, and
+ * it still measures the title and the description — "Movie not found" and
+ * a one-line description read as broken, and an audit counts them as
+ * errors on every URL that has died.
+ *
+ * So the copy is written inside the bands a search result shows: the
+ * rendered title clears 30 characters, and the description sits in the
+ * 120-160 band even though the page is noindex.
+ */
+export function missingContentSeo(kind:
+  | "movie"
+  | "tv"
+  | "episode"
+  | "category"
+  | "article"
+): { title: string; description: string } {
+  switch (kind) {
+    case "movie":
+      return {
+        title: "Movie Not Found — Title Unavailable",
+        description:
+          "This movie is not available on Movbox. The title may have left the catalogue or the link may be out of date. Browse free movies and TV shows on Movbox.",
+      };
+    case "tv":
+      return {
+        title: "TV Show Not Found — Title Unavailable",
+        description:
+          "This TV show is not available on Movbox. It may have left the catalogue or the link may be out of date. Browse free movies and TV shows on Movbox.",
+      };
+    case "episode":
+      return {
+        title: "Watch Page Not Found — Title Unavailable",
+        description:
+          "This title is not available on Movbox. It may have left the catalogue or the link may be out of date. Browse free movies and TV shows on Movbox.",
+      };
+    case "category":
+      return {
+        title: "Category Not Found — Section Unavailable",
+        description:
+          "This category is not available on Movbox. It may have been renamed or removed. Browse movies, TV shows and anime free on Movbox.",
+      };
+    case "article":
+      return {
+        title: "Article Not Found — Post Unavailable",
+        description:
+          "This article is not available on Movbox. It may have been unpublished or the link may be out of date. Read the latest Movbox guides.",
+      };
+  }
+}

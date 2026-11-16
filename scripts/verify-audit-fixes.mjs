@@ -169,7 +169,11 @@ console.log("\n3. Titles and descriptions across the sitemap");
         if (a.title.length < 30) bad.shortTitle.push(`${url}\n        "${a.title}" (${a.title.length})`);
         if (a.desc.length < 120) bad.shortDesc.push(`${url}\n        "${a.desc}" (${a.desc.length})`);
         if (a.desc.length > 160) bad.longDesc.push(`${url}\n        "${a.desc}" (${a.desc.length})`);
-        if (a.h1s.length !== 1 || !a.h1s[0]) bad.noH1.push(url);
+        // A real 404 (notFound() inside a dynamic route) renders an empty body:
+        // the h1 lives only in the RSC payload. Rendering an h1 inline would
+        // turn the 404 into a 200 soft-404, which is worse than no h1.
+        // So the h1 rule only applies to pages that answered 200.
+        if (res.status === 200 && (a.h1s.length !== 1 || !a.h1s[0])) bad.noH1.push(url);
         if (!a.og.title || !a.og.description || !a.og.image || !a.og.url)
           bad.og.push(url);
       } catch {}

@@ -55,6 +55,25 @@ let over2mb = [];
 let done = 0;
 const CONCURRENCY = 12;
 
+/**
+ * Decode the HTML entities before measuring.
+ *
+ * A title that reads "Full Episodes & Seasons" is 58 characters in the
+ * browser, but the SERIALISED title is "Full Episodes &amp; Seasons" — 62
+ * characters. Measuring the raw markup made every title and description
+ * with an ampersand or an apostrophe look over the limit when it is not,
+ * and buried the real failures in false positives.
+ */
+const decode = (s) =>
+  String(s || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+
 async function check(url) {
   try {
     const r = await fetch(url, { redirect: "manual" });
@@ -67,15 +86,15 @@ async function check(url) {
     }
     if (html.length > 2 * 1024 * 1024) over2mb.push(`${url} (${(html.length / 1048576).toFixed(2)} MB)`);
 
-    const title = (html.match(/<title>([^<]*)<\/title>/) || [])[1];
-    const desc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1];
+    const title = decode((html.match(/<title>([^<]*)<\/title>/) || [])[1]);
+    const desc = decode((html.match(/<meta name="description" content="([^"]*)"/) || [])[1]);
     const canonical = (html.match(/<link rel="canonical" href="([^"]+)"/) || [])[1];
     const ogTitle = (html.match(/<meta property="og:title" content="([^"]*)"/) || [])[1];
     const ogDesc = (html.match(/<meta property="og:description" content="([^"]*)"/) || [])[1];
     const ogImage = (html.match(/<meta property="og:image" content="([^"]*)"/) || [])[1];
     const ogUrl = (html.match(/<meta property="og:url" content="([^"]*)"/) || [])[1];
     const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)].map((m) =>
-      m[1].replace(/<[^>]+>/g, "").trim()
+      decode(m[1].replace(/<[^>]+>/g, "").trim())
     );
     const noindex = /name="robots"[^>]*content="[^"]*noindex/i.test(html);
 
@@ -92,7 +111,7 @@ async function check(url) {
       if (len > 160) problems["description too long (>160)"].push(`${url}\n        "${desc}" (${len})`);
     }
     if (!canonical) problems["no canonical"].push(url);
-    else if (canonical.replace(/&amp;/g, "&") !== url) {
+    else if (canonical.replace(/&amp;/g, "&").replace(/\/+$/, "") !== url.replace(/\/+$/, "")) {
       const rel = canonical.includes("/watch/tv/");
       problems["canonical != url"].push(
         `${url}\n        -> ${canonical}${rel ? "   (episode base)" : ""}`
