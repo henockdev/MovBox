@@ -41,6 +41,45 @@ on **Vercel**. The deploy is a `git push` to `main`.
 | `fe89de5` | Ranking shelf renders the whole group, not the first 12 |
 | `29b3f28` | The Bing Webmaster diagnostic (`scripts/bing-webmaster.mjs`, `docs/BING-PERFORMANCE.md`) |
 | `33c68ff` | Homepage 1.75 MB → 888 kB: icon sprite + extracted card classes |
+| `105f8fd` | The docs: homepage weight work, and the "delete the site from Bing" answer |
+| *(this session)* | **Microsoft Clarity installed** (`ze20elh5au`), with the 18+ surfaces kept out of the recording |
+| *(this session)* | **Sitemap orphan fix** — only the episodes the upstream actually lists are published |
+
+### Microsoft Clarity (2026-11-15)
+
+The owner's snippet is installed, verbatim, in `lib/analytics/clarity.ts`
+(`CLARITY_SNIPPET_BODY`) and run by `components/analytics/Clarity.tsx`.
+
+The site has a real 18+ catalogue, and Microsoft's Clarity terms do not
+allow a session recorder over it — so the tag is **never injected** on:
+
+- `/category/midnight`
+- `/rankings/adult-animation`, `/rankings/bl-story`
+- any `/tv/<slug>`, `/movie/<slug>` or `/watch/…` page whose own genres
+  or title mark it as adult
+
+The decision is made in the browser before the tag is injected, because
+the URL alone cannot tell an adult series from an ordinary one.
+
+Proved in the browser (network log, local build):
+
+| Page | Clarity traffic |
+|---|---|
+| `/` | tag 200 + `u.clarity.ms/collect` 204 — recording |
+| `/category/midnight` | **none** |
+| `/tv/kap-toyo-indGB7vWGf6` (18+) | **none** |
+| `/` → click → `/category/midnight` | **none** on the 18+ page; recording resumes on the way back |
+
+`scripts/verify-clarity.mjs` checks the markers in the served HTML.
+
+### Sitemap orphan fix (2026-11-15)
+
+`maxEp` was being treated as a COUNT of episodes, so the sitemap
+published `/watch/tv/<id>/<s>/<e>` for every number up to it. The
+upstream publishes the real list in `allEp`. The sitemap now publishes
+only what the series page links: **25,074 → 21,468 URLs** (20,605 episode
+URLs, 398 series), 0 orphans in the 34 sampled series.
+`scripts/scan-orphan-episodes.mjs` is the guard.
 
 ### The homepage weight work (2026-11-15)
 
