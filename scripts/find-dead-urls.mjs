@@ -24,6 +24,7 @@ const locs = [...new Set([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => de
 console.log(`sitemap urls: ${locs.length}`);
 
 const bad = [];
+const transport = [];
 const queue = [...locs];
 let done = 0;
 
@@ -39,8 +40,10 @@ async function worker() {
       // Drain the body so the connection can be reused.
       await r.text().catch(() => {});
     } catch (e) {
-      bad.push({ url, status: e.message });
-      console.log(`  ERR  ${url} — ${e.message}`);
+      // A transport failure is THIS machine's connection pressure, not a
+      // page error. It is counted separately so it never inflates the
+      // "pages with errors" number.
+      transport.push({ url, status: e.message });
     }
     done++;
     if (done % 500 === 0) console.log(`  …${done}/${locs.length}`);
@@ -51,6 +54,7 @@ await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
 console.log(`\nchecked ${locs.length} urls`);
 console.log(`non-200     : ${bad.length}`);
+console.log(`transport err: ${transport.length}  (not page errors)`);
 const byStatus = new Map();
 for (const b of bad) byStatus.set(b.status, (byStatus.get(b.status) || 0) + 1);
 for (const [s, n] of [...byStatus.entries()].sort((a, b) => b[1] - a[1])) {

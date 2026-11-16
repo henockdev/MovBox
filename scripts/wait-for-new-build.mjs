@@ -117,6 +117,15 @@ const MARKERS = [
       html.includes('data-clarity-exclude="true"') &&
       html.includes('data-clarity-mask="true"'),
   },
+  {
+    // The dead-URL metadata fix: a URL whose title left the catalogue still
+    // answers 404, but it now carries a title and a description inside the
+    // bands instead of a stub. This is the marker that tells this build
+    // apart from the one before it.
+    name: "Dead URLs carry in-band metadata",
+    path: "/movie/permafrost-ynJSysLl91",
+    test: (html) => html.includes("The title may have left the catalogue"),
+  },
 ];
 
 // One fetch per distinct path, reused across the markers that need it.

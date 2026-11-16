@@ -43,9 +43,14 @@ export async function generateMetadata({
   // description (Google rewrites anything under ~120), no <h1> and no
   // og:image, because they were being served as soft-404s by a dead TMDB
   // integration.
+  //
+  // The title is NOT the same pattern the category pages use. /genres/37
+  // (Western) and /category/western (Western) are two different pages about
+  // two different shelves, and the identical title made them a duplicate
+  // pair in the audit.
   return pageSeo({
     path: `/genres/${genre.id}`,
-    title: `${genre.title} Movies & TV Shows — Watch Free`,
+    title: `${genre.title} Genre — Free Movies & TV Shows`,
     // The floor is applied by pageSeo(), so it is not applied here as well.
     description: clampDescription(genre.description, 160, 0),
     image: "/opengraph-image",

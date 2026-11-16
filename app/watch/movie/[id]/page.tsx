@@ -51,9 +51,16 @@ export async function generateMetadata({
 
   const details = outcome.detail;
 
-  // The raw synopsis — pageSeo() is what clamps it into the 120-160 band,
-  // so clamping it here as well would append the description's tail twice.
-  const description = details.synopsis || `Stream ${details.title} on ${SITE_NAME}.`;
+  // The watch page and the detail page are two URLs for the same film, so
+  // they must NOT carry the same description — the audit counted every
+  // /watch/movie/ page as a duplicate of its /movie/ twin. The watch page
+  // gets its own lead ("Watch <title> free on Movbox.") in front of the
+  // synopsis, exactly like the TV watch page does. The raw synopsis is used
+  // here; pageSeo() is what clamps the pair into the 120-160 band — clamping
+  // it here as well would append the description's tail twice.
+  const prefix = `Watch ${details.title} free on ${SITE_NAME}.`;
+  const synopsis = (details.synopsis || "").trim();
+  const description = synopsis ? `${prefix} ${synopsis}` : prefix;
 
   return pageSeo({
     path: `/watch/movie/${encodeURIComponent(details.detailPath)}`,
