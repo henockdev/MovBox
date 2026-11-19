@@ -1,6 +1,88 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // -------------------------------------------------------------------------
+  // standalone — the self-hosted build.
+  //
+  // `next build` emits a self-contained server bundle in `.next/standalone`
+  // (its own node_modules, a `server.js` entry point and nothing else), which
+  // is what the Docker image in `deploy/Dockerfile` runs. It is also what
+  // makes the Oracle Cloud deploy possible: the image does not need the
+  // repository, the toolchain or a second `npm install` on the host.
+  //
+  // `next start` still works with this flag set, so the local dev loop and
+  // the Vercel build are unaffected.
+  // -------------------------------------------------------------------------
+  output: "standalone",
+
+  // -------------------------------------------------------------------------
+  // Cache headers for the pages a crawler walks hardest.
+  //
+  // The episode pages carry their episode in the QUERY string
+  // (`/watch/tv/<id>?s=1&e=1`), which makes them dynamic: Next renders one
+  // of them per request, and a crawler walking the 20k+ episode URLs in the
+  // sitemap turns into 20k+ server renders. That is exactly what burned the
+  // Vercel Hobby account over its fair-use CPU limit and got the whole
+  // account paused.
+  //
+  // The page HTML is identical for every visitor (the watchlist lives in
+  // localStorage, and nothing on the page is per-user), so it is safe to
+  // cache. The cache key includes the query string, so `?s=1&e=1` and
+  // `?s=1&e=2` stay separate.
+  //
+  // `s-maxage` is what the shared caches (Cloudflare's edge, Vercel's CDN)
+  // obey; `max-age` is left at 0 so a browser always revalidates.
+  // -------------------------------------------------------------------------
+  async headers() {
+    return [
+      {
+        source: "/watch/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=900, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/movie/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/tv/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/movies",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=900, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/tv",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=900, stale-while-revalidate=86400",
+          },
+        ],
+      },
+    ];
+  },
+
   // Vercel's free tier limits Image Optimization to ~1,000 unique
   // source images per month. With 355+ titles × 2 images each (poster
   // + backdrop) we blow through that in a single day. Setting

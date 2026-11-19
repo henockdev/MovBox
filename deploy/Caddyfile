@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# Caddy — TLS + reverse proxy for movbox.xyz
+#
+# Caddy obtains and renews the Let's Encrypt certificate on its own, and it
+# renews it through Cloudflare's proxy because Cloudflare forwards
+# /.well-known/acme-challenge/* to the origin.
+#
+# Cloudflare → origin must be set to SSL mode "Full (strict)" for the
+# certificate Caddy gets to be verified. "Full" also works.
+# ---------------------------------------------------------------------------
+
+movbox.xyz, www.movbox.xyz {
+	encode zstd gzip
+
+	# The app's own headers already say what the browser should do; do not
+	# let the proxy second-guess them.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# /api/video-proxy streams media bytes. `flush_interval -1` makes the
+	# proxy forward every chunk as it arrives instead of buffering.
+	#
+	# This block comes FIRST on purpose: Caddy evaluates `handle` blocks in
+	# the order they appear and the first match wins, so the broader /api/*
+	# block below would otherwise swallow the video proxy.
+	@video path /api/video-proxy*
+	handle @video {
+		reverse_proxy web:3000 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	# /api/sources resolves a signed, short-lived media URL. It must never
+	# be cached by the proxy — a stale signed URL plays nothing.
+	@api path /api/*
+	handle @api {
+		reverse_proxy web:3000 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000 {
+			flush_interval -1
+		}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format json
+	}
+}
